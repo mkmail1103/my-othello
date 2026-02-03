@@ -68,6 +68,7 @@ io.on('connection', (socket) => {
             // –{l‚ÉF‚ğ“`‚¦‚é
             socket.emit('init_game', {
                 color,
+                roomId,
                 board: room.board,
                 turn: room.turn
             });

@@ -21,7 +21,7 @@ enum GameStatus {
 }
 
 // Connect to backend
-const socket = io();
+
 
 // --- Components ---
 
@@ -167,7 +167,10 @@ const App: React.FC = () => {
 
     const handleJoinRoom = () => {
         if (!inputRoomID.trim() || !socket) return;
-        socket.emit('join_room', inputRoomID);
+        socket.emit('join_room', {
+            roomId: inputRoomID,
+            playerName: 'Player' // © ‚Æ‚è‚ ‚¦‚¸ŒÅ’è‚ÅOK
+        });
     };
 
     const handleCellClick = (r: number, c: number) => {
