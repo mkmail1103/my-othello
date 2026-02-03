@@ -28,7 +28,7 @@ const io = new Server(httpServer, {
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // どのURLにアクセスされても、オセロの画面(index.html)を返す
-app.get('/:path*', (req, res) => {
+app.get('(.*)', (req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 // ------------------------
