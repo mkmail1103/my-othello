@@ -335,3 +335,163 @@ body {
     .leave-btn:hover {
         background-color: #4b5563;
     }
+
+/* --- App.css の末尾に追加してください --- */
+
+/* 1. 自分がどっちの色か分かるマーク */
+.you-tag {
+    background-color: #ffc107; /* 目立つ黄色 */
+    color: #000;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+    box-shadow: 0 0 5px rgba(255, 193, 7, 0.5);
+}
+
+/* 2. 派手なリザルト画面（オーバーレイ） */
+.result-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85); /* 背景を暗くする */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    animation: fadeIn 0.5s ease;
+    backdrop-filter: blur(5px); /* 背景をぼかす */
+}
+
+.result-card {
+    background: linear-gradient(145deg, #2a2a2a, #333);
+    padding: 50px;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    border: 2px solid #444;
+    animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    min-width: 320px;
+    max-width: 90%;
+}
+
+    /* 勝敗に応じた色変化 */
+    .result-card.win {
+        border-color: #4caf50;
+        box-shadow: 0 0 50px rgba(76, 175, 80, 0.3);
+    }
+
+    .result-card.lose {
+        border-color: #f44336;
+        box-shadow: 0 0 50px rgba(244, 67, 54, 0.3);
+    }
+
+    .result-card.draw {
+        border-color: #2196f3;
+        box-shadow: 0 0 50px rgba(33, 150, 243, 0.3);
+    }
+
+.result-title {
+    font-size: 3.5rem;
+    margin: 0 0 20px 0;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+.win .result-title {
+    color: #4caf50;
+}
+
+.lose .result-title {
+    color: #f44336;
+}
+
+.draw .result-title {
+    color: #2196f3;
+}
+
+/* 最終スコア表示 */
+.final-score {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+    margin-bottom: 40px;
+    background: rgba(0,0,0,0.2);
+    padding: 20px;
+    border-radius: 15px;
+}
+
+.score-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+    .score-box .label {
+        font-size: 1rem;
+        color: #aaa;
+        margin-bottom: 5px;
+    }
+
+    .score-box .value {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #fff;
+        line-height: 1;
+    }
+
+.vs {
+    font-size: 1.5rem;
+    color: #666;
+    font-style: italic;
+    font-weight: bold;
+}
+
+/* 戻るボタン */
+.rematch-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    padding: 15px 40px;
+    color: white;
+    font-size: 1.2rem;
+    font-weight: bold;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+    .rematch-btn:hover {
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 8px 25px rgba(118, 75, 162, 0.5);
+    }
+
+/* アニメーション定義 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0.5) translateY(50px);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}

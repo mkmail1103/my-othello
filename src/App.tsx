@@ -194,6 +194,50 @@ const App: React.FC = () => {
         return [];
     }, [board, status, turn, myColor]);
 
+    // ■ 1. コンポーネント定義の最後あたり（return の直前）に追加
+    // 結果画面用のサブコンポーネントを作っておくとスッキリします
+    const GameResultOverlay = () => {
+        if (status !== GameStatus.FINISHED) return null;
+
+        let title = "";
+        let resultClass = "";
+
+        if (winner === 'draw') {
+            title = "DRAW";
+            resultClass = "draw";
+        } else if (winner === myColor) {
+            title = "VICTORY!";
+            resultClass = "win";
+        } else {
+            title = "DEFEAT...";
+            resultClass = "lose";
+        }
+
+        return (
+            <div className="result-overlay">
+                <div className={`result-card ${resultClass}`}>
+                    <h1 className="result-title">{title}</h1>
+
+                    <div className="final-score">
+                        <div className="score-box">
+                            <span className="label">BLACK</span>
+                            <span className="value">{scores.black}</span>
+                        </div>
+                        <div className="vs">vs</div>
+                        <div className="score-box">
+                            <span className="label">WHITE</span>
+                            <span className="value">{scores.white}</span>
+                        </div>
+                    </div>
+
+                    <button onClick={() => window.location.reload()} className="rematch-btn">
+                        Back to Lobby
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
     // --- RENDER ---
 
     if (status === GameStatus.LOBBY) {
@@ -222,12 +266,17 @@ const App: React.FC = () => {
 
     return (
         <div className="game-container">
+            {/* ■ 追加: 結果画面オーバーレイ */}
+            <GameResultOverlay />
+
             {/* HUD / Scoreboard */}
             <div className="scoreboard">
+                {/* BLACK側 */}
                 <div className={`player-info ${turn === 'black' ? 'active-turn' : ''}`}>
                     <div className="score-indicator black"></div>
                     <div className="score-text">
-                        <span>BLACK</span>
+                        {/* ■ 修正: YOUタグを追加 */}
+                        <span>BLACK {myColor === 'black' && <span className="you-tag">YOU</span>}</span>
                         <span className="score-value">{scores.black}</span>
                     </div>
                 </div>
@@ -236,20 +285,25 @@ const App: React.FC = () => {
                     <div className="room-id">Room: {roomID}</div>
                     <div className={`status-badge ${myColor === turn ? 'my-turn' : ''}`}>
                         {status === GameStatus.WAITING ? 'Waiting for opponent...' :
-                            status === GameStatus.FINISHED ? (winner === 'draw' ? 'Draw!' : `${winner?.toUpperCase()} Wins!`) :
+                            // FINISHEDの時はオーバーレイが出るのでここでは簡易表示でOK
+                            status === GameStatus.FINISHED ? 'GAME OVER' :
                                 status === GameStatus.ABORTED ? 'Opponent Disconnected' :
                                     myColor === turn ? 'YOUR TURN' : "OPPONENT'S TURN"}
                     </div>
                 </div>
 
+                {/* WHITE側 */}
                 <div className={`player-info ${turn === 'white' ? 'active-turn' : ''}`}>
                     <div className="score-text" style={{ textAlign: 'right' }}>
-                        <span>WHITE</span>
+                        {/* ■ 修正: YOUタグを追加 */}
+                        <span>WHITE {myColor === 'white' && <span className="you-tag">YOU</span>}</span>
                         <span className="score-value">{scores.white}</span>
                     </div>
                     <div className="score-indicator white"></div>
                 </div>
             </div>
+
+            {/* ... (通知トーストや盤面はそのまま) ... */}
 
             {notification && (
                 <div className="notification-toast">
@@ -257,8 +311,8 @@ const App: React.FC = () => {
                 </div>
             )}
 
-            {/* Board */}
             <div className="board-wrapper">
+                {/* ... (Boardの中身はそのまま) ... */}
                 <div className="board">
                     {board.map((row, r) => (
                         row.map((cell, c) => {
@@ -271,8 +325,6 @@ const App: React.FC = () => {
                                 >
                                     {isValid && <div className="valid-marker" />}
                                     {cell && <Disc color={cell} />}
-
-                                    {/* Coordinates */}
                                     {c === 0 && <span className="coord-y">{r + 1}</span>}
                                     {r === 7 && <span className="coord-x">{String.fromCharCode(65 + c)}</span>}
                                 </div>
@@ -284,7 +336,8 @@ const App: React.FC = () => {
 
             {/* Controls */}
             <div className="controls">
-                {(status === GameStatus.FINISHED || status === GameStatus.ABORTED) && (
+                {/* 終了時のボタンはオーバーレイ側に移動したので、ここには ABORTED 用だけ残す */}
+                {status === GameStatus.ABORTED && (
                     <button onClick={() => window.location.reload()} className="leave-btn">
                         Back to Lobby
                     </button>
