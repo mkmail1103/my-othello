@@ -19,24 +19,77 @@ const io = new Server(httpServer, {
     }
 });
 
-// フロントエンド(dist)の配信
 app.use(express.static(path.join(__dirname, 'dist')));
 
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-// ゲームの状態を保存する場所
 const rooms = {};
+
+// --- Helper Functions ---
+
+// 指定した色が置ける場所があるかチェックする関数
+function hasValidMoves(board, color) {
+    const directions = [
+        [-1, -1], [-1, 0], [-1, 1],
+        [0, -1], [0, 1],
+        [1, -1], [1, 0], [1, 1]
+    ];
+    const opponent = color === 'black' ? 'white' : 'black';
+
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            if (board[r][c] !== null) continue;
+
+            for (const [dr, dc] of directions) {
+                let nr = r + dr;
+                let nc = c + dc;
+                let foundOpponent = false;
+
+                while (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === opponent) {
+                    foundOpponent = true;
+                    nr += dr;
+                    nc += dc;
+                }
+
+                if (foundOpponent && nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === color) {
+                    return true; // 少なくとも1箇所置ける場所がある
+                }
+            }
+        }
+    }
+    return false;
+}
+
+// 石の数を数える関数
+function countScore(board) {
+    let black = 0;
+    let white = 0;
+    board.forEach(row => row.forEach(cell => {
+        if (cell === 'black') black++;
+        if (cell === 'white') white++;
+    }));
+    return { black, white };
+}
+
+// --- Socket Logic ---
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    // ■ 修正ポイント1: App.tsxに合わせてイベント名を修正
-    socket.on('join_room', ({ roomId, playerName }) => {
-        socket.join(roomId);
+    // プレイヤーがどの部屋にいるか追跡用
+    socket.currentRoom = null;
 
-        // 部屋がなければ作る
+    socket.on('join_room', ({ roomId, playerName }) => {
+        // 以前の部屋があれば抜ける処理を入れる（念のため）
+        if (socket.currentRoom) {
+            socket.leave(socket.currentRoom);
+        }
+
+        socket.join(roomId);
+        socket.currentRoom = roomId;
+
         if (!rooms[roomId]) {
             rooms[roomId] = {
                 board: Array(8).fill(null).map(() => Array(8).fill(null)),
@@ -44,7 +97,6 @@ io.on('connection', (socket) => {
                 players: [],
                 status: 'WAITING'
             };
-            // 初期配置
             rooms[roomId].board[3][3] = 'white';
             rooms[roomId].board[3][4] = 'black';
             rooms[roomId].board[4][3] = 'black';
@@ -53,88 +105,131 @@ io.on('connection', (socket) => {
 
         const room = rooms[roomId];
 
-        if (room.players.length < 2) {
-            const color = room.players.length === 0 ? 'black' : 'white';
-            // プレイヤー情報を保存
-            room.players.push({ id: socket.id, name: playerName, color });
-
-            // 1. 本人に「あなたは黒（または白）ですよ」と伝える
-            socket.emit('init_game', {
-                color,
-                roomId
-            });
-
-            // 2. 人数に応じて状態を通知する
-            if (room.players.length === 1) {
-                // 1人目なら「待機中」画面へ
-                socket.emit('waiting_opponent');
-            } else {
-                // 2人目なら「ゲーム開始」画面へ（部屋にいる全員に通知）
-                room.status = 'PLAYING';
-                io.to(roomId).emit('game_start', {
-                    board: room.board,
-                    turn: room.turn
-                });
-            }
-        } else {
+        // 部屋が満員かチェック
+        if (room.players.length >= 2) {
+            // 再接続しようとした人が、元のプレイヤーかどうかの判定は複雑なので
+            // ここでは単純に「満員です」と返します
             socket.emit('error_message', 'Room is full!');
+            return;
         }
-    });
 
-    // ■ 修正ポイント2: イベント名を 'place_stone' から 'make_move' に変更
-    // App.tsx は { roomId, row, col } を送ってくる
-    socket.on('make_move', ({ roomId, row, col }) => {
-        const room = rooms[roomId];
+        const color = room.players.length === 0 ? 'black' : 'white';
+        room.players.push({ id: socket.id, name: playerName, color });
 
-        // 部屋が存在して、ゲーム中なら処理する
-        if (room && room.status === 'PLAYING') {
-            const color = room.turn; // 現在のターンの色
+        socket.emit('init_game', { color, roomId });
 
-            // 石を置く（ロジック判定は簡易的に省略し、フロントを信じる）
-            room.board[row][col] = color;
-
-            // 挟んだ石を裏返す処理（簡易版：全方向チェック）
-            const directions = [
-                [-1, -1], [-1, 0], [-1, 1],
-                [0, -1], [0, 1],
-                [1, -1], [1, 0], [1, 1]
-            ];
-            const opponent = color === 'black' ? 'white' : 'black';
-
-            for (const [dr, dc] of directions) {
-                let r = row + dr;
-                let c = col + dc;
-                const flips = [];
-                // 相手の石が続いている間ループ
-                while (r >= 0 && r < 8 && c >= 0 && c < 8 && room.board[r][c] === opponent) {
-                    flips.push({ r, c });
-                    r += dr;
-                    c += dc;
-                }
-                // 最後に自分の石があれば裏返す
-                if (r >= 0 && r < 8 && c >= 0 && c < 8 && room.board[r][c] === color && flips.length > 0) {
-                    flips.forEach(p => {
-                        room.board[p.r][p.c] = color;
-                    });
-                }
-            }
-
-            // ターン交代
-            room.turn = opponent;
-
-            // 全員に新しい盤面を送る
-            io.to(roomId).emit('update_board', {
+        if (room.players.length === 1) {
+            socket.emit('waiting_opponent');
+        } else {
+            room.status = 'PLAYING';
+            io.to(roomId).emit('game_start', {
                 board: room.board,
                 turn: room.turn
             });
-
-            // 勝敗判定などは必要に応じてここに追加
         }
     });
 
+    socket.on('make_move', ({ roomId, row, col }) => {
+        const room = rooms[roomId];
+        if (!room || room.status !== 'PLAYING') return;
+
+        const color = room.turn;
+
+        // 念のためサーバー側でもそこが空いているかチェック
+        if (room.board[row][col] !== null) return;
+
+        // 石を置く処理
+        room.board[row][col] = color;
+
+        // ひっくり返す処理
+        const directions = [
+            [-1, -1], [-1, 0], [-1, 1],
+            [0, -1], [0, 1],
+            [1, -1], [1, 0], [1, 1]
+        ];
+        const opponent = color === 'black' ? 'white' : 'black';
+
+        for (const [dr, dc] of directions) {
+            let r = row + dr;
+            let c = col + dc;
+            const flips = [];
+            while (r >= 0 && r < 8 && c >= 0 && c < 8 && room.board[r][c] === opponent) {
+                flips.push({ r, c });
+                r += dr;
+                c += dc;
+            }
+            if (r >= 0 && r < 8 && c >= 0 && c < 8 && room.board[r][c] === color && flips.length > 0) {
+                flips.forEach(p => room.board[p.r][p.c] = color);
+            }
+        }
+
+        // --- ここから追加・修正ロジック ---
+
+        // 次のターンの判定（パス判定、ゲーム終了判定）
+        const nextTurnColor = opponent;
+        const currentTurnColor = color;
+
+        const nextCanMove = hasValidMoves(room.board, nextTurnColor);
+        const currentCanMove = hasValidMoves(room.board, currentTurnColor);
+
+        if (nextCanMove) {
+            // 普通に交代
+            room.turn = nextTurnColor;
+            io.to(roomId).emit('update_board', { board: room.board, turn: room.turn });
+
+        } else if (currentCanMove) {
+            // 相手が置けないが、自分は置ける -> パス
+            // ターンは今の人のまま
+            io.to(roomId).emit('update_board', { board: room.board, turn: currentTurnColor });
+            io.to(roomId).emit('notification', `${nextTurnColor.toUpperCase()} has no moves! PASS.`);
+
+        } else {
+            // 両者とも置けない -> ゲーム終了
+            const scores = countScore(room.board);
+            let winner = 'draw';
+            if (scores.black > scores.white) winner = 'black';
+            if (scores.white > scores.black) winner = 'white';
+
+            room.status = 'FINISHED';
+            io.to(roomId).emit('game_over', {
+                board: room.board,
+                winner,
+                blackScore: scores.black,
+                whiteScore: scores.white
+            });
+
+            // ゲームが終わったら部屋を削除してもいいが、結果表示のために少し残す
+            // ここでは削除せず、プレイヤーが退出したときに削除する
+        }
+    });
+
+    // 切断時の処理（重要：部屋をきれいにする）
     socket.on('disconnect', () => {
-        // 切断時の処理（必要なら実装）
         console.log('User disconnected:', socket.id);
+
+        // ユーザーが所属していた部屋を探す
+        // roomIDをsocketに保存していない場合は全探索が必要だが、
+        // 上記 join_room で socket.currentRoom に保存するようにした
+        const roomId = socket.currentRoom;
+
+        if (roomId && rooms[roomId]) {
+            const room = rooms[roomId];
+
+            // プレイヤーリストから削除
+            room.players = room.players.filter(p => p.id !== socket.id);
+
+            // もしゲーム中だったら「切断による終了」を通知
+            if (room.status === 'PLAYING') {
+                room.status = 'ABORTED';
+                io.to(roomId).emit('player_left');
+            }
+
+            // 誰もいなくなったら部屋自体を削除（これでRoom IDが再利用可能になる）
+            if (room.players.length === 0) {
+                delete rooms[roomId];
+                console.log(`Room ${roomId} deleted.`);
+            }
+        }
     });
 });
 
