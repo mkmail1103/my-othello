@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+﻿
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import './App.css';
 
@@ -687,7 +688,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                             onPointerCancel={handlePointerUp}
                         >
                             {shape && (
-                                <div className="mini-grid" style={{ gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)`, width: `${shape.matrix[0].length * 20}px` }}>
+                                <div className="mini-grid" style={{ gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)` }}>
                                     {shape.matrix.map((row, r) => row.map((val, c) => (
                                         <div key={`${r}-${c}`} className="mini-cell" style={{ backgroundColor: val ? color : 'transparent' }} />
                                     )))}
@@ -702,7 +703,8 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                 <div className="drag-preview" style={{ left: dragState.currentX, top: dragState.currentY - TOUCH_OFFSET_Y, transform: 'translate(-50%, -50%)' }}>
                     <div className="mini-grid" style={{
                         gridTemplateColumns: `repeat(${hand[dragState.shapeIdx]!.matrix[0].length}, 1fr)`,
-                        width: `${hand[dragState.shapeIdx]!.matrix[0].length * dragState.boardCellSize}px`, gap: '1px'
+                        width: `${hand[dragState.shapeIdx]!.matrix[0].length * dragState.boardCellSize}px`,
+                        gap: '2px'
                     }}>
                         {hand[dragState.shapeIdx]!.matrix.map((row, r) => row.map((val, c) => (
                             <div key={`${r}-${c}`} className="mini-cell" style={{
@@ -733,13 +735,13 @@ const App: React.FC = () => {
 
     const themes: ThemeType[] = ['neon', 'pastel', 'misty', 'muted-blue', 'muted-purple'];
 
-    const getThemePreviewColor = (t: ThemeType) => {
+    const getThemeGradient = (t: ThemeType) => {
         switch (t) {
-            case 'neon': return '#10b981';
-            case 'pastel': return '#fbcfe8';
-            case 'misty': return '#8da9c4';
-            case 'muted-blue': return '#5F9EA0';
-            case 'muted-purple': return '#9370DB';
+            case 'neon': return 'linear-gradient(135deg, #000000, #10b981)';
+            case 'pastel': return 'linear-gradient(135deg, #fff0f5, #f472b6)';
+            case 'misty': return 'linear-gradient(135deg, #e0e1dd, #778da9)';
+            case 'muted-blue': return 'linear-gradient(135deg, #d1d9e6, #5F9EA0)';
+            case 'muted-purple': return 'linear-gradient(135deg, #e6e1e8, #9370DB)';
         }
         return '#fff';
     };
@@ -754,7 +756,7 @@ const App: React.FC = () => {
                             <button
                                 key={t}
                                 className={`theme-swatch ${theme === t ? 'active' : ''}`}
-                                style={{ backgroundColor: getThemePreviewColor(t) }}
+                                style={{ background: getThemeGradient(t) }}
                                 onClick={() => setTheme(t)}
                                 aria-label={`Select ${t} theme`}
                             />

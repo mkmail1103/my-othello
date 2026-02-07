@@ -1,3 +1,4 @@
+
 /* Reset & Base */
 :root {
     /* Default is Neon fallback */
@@ -129,18 +130,16 @@ body {
 /* ================= LOBBY & MENU ================= */
 .lobby-container {
     display: flex;
-    flex-direction: column; /* Stack vertically */
+    flex-direction: column;
     align-items: center;
-    /* justify-content: center; REMOVED center to avoid top cutoff */
-    justify-content: flex-start; /* Start from top */
+    justify-content: center; /* Changed from flex-start to center for vertical alignment */
     width: 100vw;
     height: 100dvh;
     padding: 1rem;
     box-sizing: border-box;
     position: relative;
-    /* Add top padding to account for safe area and spacing */
-    padding-top: max(5rem, env(safe-area-inset-top));
-    overflow-y: auto; /* Allow scrolling if content is too tall */
+    /* Removed the large padding-top which caused the shift down */
+    overflow-y: hidden;
 }
 
 [data-theme="neon"] .lobby-container {
@@ -148,9 +147,6 @@ body {
 }
 
 .theme-selector-container {
-    /* Use fixed or sticky position if we want it to stay on top, 
-       but inside lobby flow might be better for layout stability. 
-       Let's keep absolute but ensure spacing. */
     position: absolute;
     top: max(1rem, env(safe-area-inset-top));
     right: 1rem;
@@ -176,13 +172,14 @@ body {
 }
 
 .theme-swatch {
-    width: 28px; /* Slightly bigger touch target */
+    width: 28px;
     height: 28px;
     border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.3);
     cursor: pointer;
     transition: transform 0.2s, border-color 0.2s;
     padding: 0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
     .theme-swatch:active {
@@ -191,8 +188,9 @@ body {
 
     .theme-swatch.active {
         border-color: var(--text-color);
-        transform: scale(1.1);
+        transform: scale(1.15);
         box-shadow: 0 0 10px var(--shadow-color);
+        border-width: 3px;
     }
 
 
@@ -204,8 +202,7 @@ body {
     width: 100%;
     max-width: 400px;
     box-sizing: border-box;
-    /* Ensure it pushes down if needed, though padding-top handles most */
-    margin-top: 1rem;
+    /* Removed margin-top to allow true centering */
 }
 
 .title {
@@ -512,20 +509,19 @@ body {
         cursor: grabbing;
     }
 
-/* MINI GRID: Fixed Transparency/Gap Issue */
+/* MINI GRID: Add gaps to match block puzzle style */
 .mini-grid {
     display: grid;
-    gap: 0;
+    gap: 2px; /* Added spacing */
     pointer-events: none;
-    /* Ensure it's tight */
 }
 
 .mini-cell {
-    width: 20px; /* Match the calculation in App.tsx (20px) */
+    width: 20px;
     height: 20px;
-    border-radius: 0; /* Square mini blocks */
+    border-radius: 2px; /* Slight radius looks better with gaps */
     box-sizing: border-box;
-    border: none; /* REMOVED BORDER to remove transparency gap/lines */
+    border: none;
 }
 
 
