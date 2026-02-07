@@ -28,7 +28,7 @@ enum OthelloStatus {
 // ==========================================
 
 // --- CONFIGURATION ---
-const DRAG_SENSITIVITY = 1.6;
+const DRAG_SENSITIVITY = 1.3;
 const TOUCH_OFFSET_Y = 80;
 
 type ShapeDef = {
