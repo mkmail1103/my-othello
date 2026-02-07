@@ -28,10 +28,7 @@ enum OthelloStatus {
 // ==========================================
 
 // --- CONFIGURATION ---
-// ドラッグの感度調整 (1.0 = 等倍, 1.5 = 指の動きの1.5倍動く)
-// ここを変更して微調整してください。
 const DRAG_SENSITIVITY = 1.6;
-// 指の下に隠れないようにするためのY軸オフセット(px)
 const TOUCH_OFFSET_Y = 80;
 
 type ShapeDef = {
@@ -40,19 +37,38 @@ type ShapeDef = {
     color: string;
 };
 
+// Updated Shapes based on "Block Blast" style (No 1x1 as requested before, but added bigger ones)
 const PUZZLE_SHAPES: ShapeDef[] = [
-    // Removed DOT (1x1)
-    { id: 'I2', matrix: [[1, 1]], color: '#34d399' }, // Green Horizontal
-    { id: 'I2_V', matrix: [[1], [1]], color: '#34d399' }, // Green Vertical
-    { id: 'I3', matrix: [[1, 1, 1]], color: '#60a5fa' }, // Blue Horizontal
-    { id: 'I3_V', matrix: [[1], [1], [1]], color: '#60a5fa' }, // Blue Vertical
-    { id: 'I4', matrix: [[1, 1, 1, 1]], color: '#818cf8' }, // Indigo Horizontal
-    { id: 'I4_V', matrix: [[1], [1], [1], [1]], color: '#818cf8' }, // Indigo Vertical
-    { id: 'SQR', matrix: [[1, 1], [1, 1]], color: '#f87171' }, // Red
-    { id: 'L3', matrix: [[1, 0], [1, 1]], color: '#a78bfa' }, // Purple
-    { id: 'J3', matrix: [[0, 1], [1, 1]], color: '#fb923c' }, // Orange
-    { id: 'T3', matrix: [[1, 1, 1], [0, 1, 0]], color: '#e879f9' }, // Pink
-    { id: 'Z3', matrix: [[1, 1, 0], [0, 1, 1]], color: '#2dd4bf' }, // Teal
+    // Standard Lines
+    { id: 'I2', matrix: [[1, 1]], color: '#34d399' },
+    { id: 'I2_V', matrix: [[1], [1]], color: '#34d399' },
+    { id: 'I3', matrix: [[1, 1, 1]], color: '#60a5fa' },
+    { id: 'I3_V', matrix: [[1], [1], [1]], color: '#60a5fa' },
+    { id: 'I4', matrix: [[1, 1, 1, 1]], color: '#818cf8' },
+    { id: 'I4_V', matrix: [[1], [1], [1], [1]], color: '#818cf8' },
+    { id: 'I5', matrix: [[1, 1, 1, 1, 1]], color: '#facc15' }, // 5-line
+    { id: 'I5_V', matrix: [[1], [1], [1], [1], [1]], color: '#facc15' },
+
+    // Squares
+    { id: 'SQR2', matrix: [[1, 1], [1, 1]], color: '#f87171' }, // 2x2
+    { id: 'SQR3', matrix: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], color: '#c084fc' }, // 3x3 Big Block
+
+    // L Shapes
+    { id: 'L3', matrix: [[1, 0], [1, 1]], color: '#a78bfa' }, // Small L
+    { id: 'L3_R', matrix: [[0, 1], [1, 1]], color: '#a78bfa' }, // Small L Mirrored
+    { id: 'L3_V', matrix: [[1, 1], [1, 0]], color: '#a78bfa' },
+    { id: 'L3_VR', matrix: [[1, 1], [0, 1]], color: '#a78bfa' },
+
+    { id: 'L5', matrix: [[1, 0, 0], [1, 0, 0], [1, 1, 1]], color: '#fb923c' }, // Big L
+    { id: 'L5_R', matrix: [[0, 0, 1], [0, 0, 1], [1, 1, 1]], color: '#fb923c' },
+
+    // T Shapes
+    { id: 'T3', matrix: [[1, 1, 1], [0, 1, 0]], color: '#e879f9' },
+    { id: 'T3_D', matrix: [[0, 1, 0], [1, 1, 1]], color: '#e879f9' },
+
+    // Z/S Shapes
+    { id: 'Z3', matrix: [[1, 1, 0], [0, 1, 1]], color: '#2dd4bf' },
+    { id: 'S3', matrix: [[0, 1, 1], [1, 1, 0]], color: '#2dd4bf' },
 ];
 
 const getRandomShapes = (count: number) => {
@@ -292,28 +308,31 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     // Cells that are currently clearing (for animation)
     const [clearingCells, setClearingCells] = useState<string[]>([]);
 
-    // Initial load: Initialize state directly to avoid useEffect setState
+    // Initial load
     const [hand, setHand] = useState<(ShapeDef | null)[]>(() => getRandomShapes(3));
     const [score, setScore] = useState(0);
     const [combo, setCombo] = useState(0);
 
+    // Visual Feedback States
+    const [comboText, setComboText] = useState<{ main: string, sub: string } | null>(null);
+    const [isShaking, setIsShaking] = useState(false);
+
     // DRAG STATE
     const [dragState, setDragState] = useState<{
         shapeIdx: number;
-        startX: number; // Pointer start X
-        startY: number; // Pointer start Y
-        currentX: number; // Block current X (calculated)
-        currentY: number; // Block current Y (calculated)
-        startPointerX: number; // To calc delta
-        startPointerY: number; // To calc delta
+        startX: number;
+        startY: number;
+        currentX: number;
+        currentY: number;
+        startPointerX: number;
+        startPointerY: number;
         hoverRow: number | null;
         hoverCol: number | null;
     } | null>(null);
 
     // Refs
     const boardRef = useRef<HTMLDivElement>(null);
-    // Cache board metrics to avoid thrashing layout during drag
-    const boardMetrics = useRef<{ left: number, top: number, width: number, height: number } | null>(null);
+    const boardMetrics = useRef<{ left: number, top: number, width: number, height: number, cellSize: number } | null>(null);
 
     // Refill hand
     useEffect(() => {
@@ -324,9 +343,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     // Check Game Over
     const isGameOver = useMemo(() => {
-        // If hand is empty (waiting for refill), it's not game over
         if (hand.every(h => h === null)) return false;
-        // If clearing animation is playing, it's not game over
         if (clearingCells.length > 0) return false;
 
         let canMove = false;
@@ -361,7 +378,8 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 left: rect.left,
                 top: rect.top,
                 width: rect.width,
-                height: rect.height
+                height: rect.height,
+                cellSize: rect.width / 8
             };
         }
 
@@ -385,33 +403,51 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const { shapeIdx, startX, startY, startPointerX, startPointerY } = dragState;
         const shape = hand[shapeIdx];
 
-        let newHoverRow: number | null = null;
-        let newHoverCol: number | null = null;
-
-        // Apply sensitivity multiplier
-        // If multiplier > 1, the block moves further than the finger
+        // Calculate raw position
         const deltaX = (e.clientX - startPointerX) * DRAG_SENSITIVITY;
         const deltaY = (e.clientY - startPointerY) * DRAG_SENSITIVITY;
-
         const currentX = startX + deltaX;
         const currentY = startY + deltaY;
 
+        let bestRow: number | null = null;
+        let bestCol: number | null = null;
+
+        // SMART SNAP LOGIC
+        // Instead of just calculating "what cell is under the top-left corner",
+        // we iterate all possible valid placements and find the one whose visual position
+        // is closest to the user's dragged position.
         if (shape && boardMetrics.current) {
-            const { left, top, width } = boardMetrics.current;
-            const cellSize = width / 8;
+            const { left, top, cellSize } = boardMetrics.current;
             const shapeWidthPx = shape.matrix[0].length * cellSize;
             const shapeHeightPx = shape.matrix.length * cellSize;
 
-            // Offset the simplified collision check so the user can see where they are dropping
-            const shapeTopLeftX = currentX - (shapeWidthPx / 2);
-            const shapeTopLeftY = currentY - (shapeHeightPx / 2) - TOUCH_OFFSET_Y;
+            // Where the user is visually holding the top-left of the shape
+            const visualTopLeftX = currentX - (shapeWidthPx / 2);
+            const visualTopLeftY = currentY - (shapeHeightPx / 2) - TOUCH_OFFSET_Y;
 
-            const col = Math.round((shapeTopLeftX - left) / cellSize);
-            const row = Math.round((shapeTopLeftY - top) / cellSize);
+            let minDistance = Infinity;
+            // Max snap distance (in pixels). If you are further than this, no snap.
+            // 2 cells worth of distance is a generous snap area.
+            const SNAP_THRESHOLD = cellSize * 2.0;
 
-            if (row >= -2 && row < 10 && col >= -2 && col < 10) {
-                newHoverRow = row;
-                newHoverCol = col;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    // 1. Is it valid?
+                    if (canPlace(grid, shape.matrix, r, c)) {
+                        // 2. Where would this placement be on screen?
+                        const targetX = left + (c * cellSize);
+                        const targetY = top + (r * cellSize);
+
+                        // 3. Distance check
+                        const dist = Math.hypot(targetX - visualTopLeftX, targetY - visualTopLeftY);
+
+                        if (dist < minDistance && dist < SNAP_THRESHOLD) {
+                            minDistance = dist;
+                            bestRow = r;
+                            bestCol = c;
+                        }
+                    }
+                }
             }
         }
 
@@ -419,8 +455,8 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             ...prev,
             currentX,
             currentY,
-            hoverRow: newHoverRow,
-            hoverCol: newHoverCol
+            hoverRow: bestRow,
+            hoverCol: bestCol
         } : null);
     };
 
@@ -434,6 +470,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         target.releasePointerCapture(e.pointerId);
 
         if (shape && hoverRow !== null && hoverCol !== null) {
+            // Re-validate just in case
             if (canPlace(grid, shape.matrix, hoverRow, hoverCol)) {
                 // 1. Construct new grid with placed piece
                 const newGrid = grid.map(row => [...row]);
@@ -448,15 +485,11 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     }
                 }
 
-                // 2. Update Hand
                 const newHand = [...hand];
                 newHand[shapeIdx] = null;
                 setHand(newHand);
-
-                // 3. Immediately Update Grid (Fixes blinking issue)
                 setGrid(newGrid);
 
-                // 4. Check for lines
                 checkLinesAndScore(newGrid);
             }
         }
@@ -470,7 +503,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         if (!shape) return [];
 
         const { hoverRow, hoverCol } = dragState;
-
+        // Logic handled in pointerMove ensures this is valid, but double check doesn't hurt
         if (canPlace(grid, shape.matrix, hoverRow, hoverCol)) {
             const cells = [];
             for (let i = 0; i < shape.matrix.length; i++) {
@@ -490,11 +523,9 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const rowsToClear: number[] = [];
         const colsToClear: number[] = [];
 
-        // Check Rows
         for (let r = 0; r < 8; r++) {
             if (currentGrid[r].every(cell => cell !== null)) rowsToClear.push(r);
         }
-        // Check Cols
         for (let c = 0; c < 8; c++) {
             let full = true;
             for (let r = 0; r < 8; r++) {
@@ -512,6 +543,21 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             const newCombo = combo + 1;
             setCombo(newCombo);
 
+            // Effect Triggers
+            if (newCombo >= 2) {
+                let mainText = "Great!";
+                if (newCombo >= 4) mainText = "Amazing!";
+                if (newCombo >= 6) mainText = "Perfect!";
+                if (totalLines >= 3) mainText = "Incredible!";
+
+                setComboText({ main: mainText, sub: `Combo x${newCombo}` });
+                setTimeout(() => setComboText(null), 1500);
+            }
+
+            // Shake Effect
+            setIsShaking(true);
+            setTimeout(() => setIsShaking(false), 500);
+
             // Mark cells for animation
             const cellsToAnim: string[] = [];
             rowsToClear.forEach(r => {
@@ -522,14 +568,11 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             });
             setClearingCells(cellsToAnim);
 
-            // Wait for animation then clear
             setTimeout(() => {
                 const points = (totalLines * 100) * newCombo;
                 setScore(prev => prev + points);
 
-                // Mutate the grid for clearing
                 const nextGrid = currentGrid.map(row => [...row]);
-
                 rowsToClear.forEach(r => {
                     for (let c = 0; c < 8; c++) nextGrid[r][c] = null;
                 });
@@ -543,12 +586,19 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         } else {
             setCombo(0);
             setScore(prev => prev + 10);
-            // Grid was already updated in handlePointerUp
         }
     };
 
     return (
         <div className="game-container puzzle-mode" style={{ touchAction: 'none' }}>
+
+            {/* Combo Popup Text */}
+            {comboText && (
+                <div className="combo-popup">
+                    <div className="combo-text">{comboText.main}</div>
+                    <div className="combo-sub">{comboText.sub}</div>
+                </div>
+            )}
 
             {isGameOver && (
                 <div className="result-overlay">
@@ -567,11 +617,11 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <span className="label">SCORE</span>
                     <span className="value neon-text">{score}</span>
                 </div>
-                {combo > 1 && <div className="combo-badge animate-pulse">{combo}x COMBO!</div>}
+                {combo > 1 && <div className="combo-badge animate-pulse">{combo}x COMBO</div>}
                 <button onClick={onBack} className="leave-btn">Exit</button>
             </div>
 
-            <div className="board-wrapper glass-panel">
+            <div className={`board-wrapper glass-panel ${isShaking ? 'shake-effect' : ''}`}>
                 <div className="board puzzle-board" ref={boardRef}>
                     {grid.map((row, r) => row.map((cell, c) => {
                         const cellKey = `${r}-${c}`;

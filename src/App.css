@@ -13,7 +13,9 @@ body {
     color: var(--text-color);
     font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
     overflow: hidden; /* Prevent scrolling during play */
-    touch-action: none; /* Disable default touch actions like zoom/scroll globally for game feel */
+    touch-action: none; /* Disable default touch actions */
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 /* ================= UTILS & EFFECTS ================= */
@@ -44,7 +46,7 @@ body {
     background: linear-gradient(90deg, #10b981, #059669);
     box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
     transition: all 0.2s;
-    color: white; /* Ensure text is white */
+    color: white;
 }
 
     .neon-btn:active {
@@ -58,7 +60,7 @@ body {
     align-items: center;
     justify-content: center;
     width: 100vw;
-    height: 100dvh; /* dynamic viewport height */
+    height: 100dvh;
     background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
     padding: 1rem;
     box-sizing: border-box;
@@ -197,14 +199,67 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    height: 100dvh; /* Dynamic viewport height */
+    height: 100dvh;
     padding: 1rem;
-    /* Add safe area padding for notches */
-    padding-top: max(1rem, env(safe-area-inset-top));
+    /* Significant top padding for mobile notches/status bars */
+    padding-top: max(4rem, env(safe-area-inset-top));
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
     box-sizing: border-box;
     background: radial-gradient(circle at 50% 30%, #1f2937 0%, #000 100%);
     width: 100vw;
+    position: relative;
+}
+
+/* Shake Animation for Combo */
+@keyframes shake {
+    0% {
+        transform: translate(1px, 1px) rotate(0deg);
+    }
+
+    10% {
+        transform: translate(-1px, -2px) rotate(-1deg);
+    }
+
+    20% {
+        transform: translate(-3px, 0px) rotate(1deg);
+    }
+
+    30% {
+        transform: translate(3px, 2px) rotate(0deg);
+    }
+
+    40% {
+        transform: translate(1px, -1px) rotate(1deg);
+    }
+
+    50% {
+        transform: translate(-1px, 2px) rotate(-1deg);
+    }
+
+    60% {
+        transform: translate(-3px, 1px) rotate(0deg);
+    }
+
+    70% {
+        transform: translate(3px, 1px) rotate(-1deg);
+    }
+
+    80% {
+        transform: translate(-1px, -1px) rotate(1deg);
+    }
+
+    90% {
+        transform: translate(1px, 2px) rotate(0deg);
+    }
+
+    100% {
+        transform: translate(1px, -2px) rotate(-1deg);
+    }
+}
+
+.shake-effect {
+    animation: shake 0.5s;
+    animation-iteration-count: 1;
 }
 
 .scoreboard {
@@ -215,10 +270,11 @@ body {
     max-width: 500px;
     padding: 0.8rem 1.2rem;
     margin-bottom: 1rem;
-    margin-top: 0; /* Removed top margin */
     min-height: 60px;
     box-sizing: border-box;
-    flex-shrink: 0; /* Prevent shrinking */
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
 }
 
 /* Othello Specifics */
@@ -319,7 +375,7 @@ body {
 }
 
 .cell {
-    width: 10vw; /* Slightly smaller to fit mobile */
+    width: 10vw;
     height: 10vw;
     max-width: 44px;
     max-height: 44px;
@@ -373,6 +429,7 @@ body {
 .puzzle-mode .board-wrapper {
     background: #111;
     border: 1px solid #333;
+    transition: box-shadow 0.2s;
 }
 
 .puzzle-board {
@@ -386,24 +443,24 @@ body {
     border-radius: 4px;
 }
 
-/* Clearing Animation */
-@keyframes flash {
+/* Clearing Animation - Flashy */
+@keyframes flashRow {
     0% {
-        background-color: #fff;
-        box-shadow: 0 0 20px #fff;
+        background-color: white;
+        box-shadow: 0 0 30px white;
+        z-index: 100;
         transform: scale(1.1);
-        z-index: 10;
     }
 
     100% {
         background-color: #1a1a1a;
-        transform: scale(0);
-        opacity: 0;
+        transform: scale(1);
+        box-shadow: none;
     }
 }
 
 .puzzle-cell.clearing {
-    animation: flash 0.4s ease-out forwards;
+    animation: flashRow 0.4s ease-out forwards;
 }
 
 .puzzle-cell.ghost-active {
@@ -411,18 +468,79 @@ body {
     box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.1);
 }
 
-.combo-badge {
-    background: linear-gradient(45deg, #f59e0b, #ef4444);
-    color: white;
-    font-weight: 800;
-    font-style: italic;
-    padding: 0.3rem 1rem;
-    border-radius: 20px;
-    font-size: 1rem;
-    box-shadow: 0 0 15px rgba(245, 158, 11, 0.6);
-    text-shadow: 0 2px 2px rgba(0,0,0,0.3);
-    animation: bounce 0.5s infinite;
+.combo-popup {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 200;
+    text-align: center;
+    width: 100%;
 }
+
+.combo-text {
+    font-family: 'Arial Black', sans-serif;
+    font-weight: 900;
+    font-size: 3rem;
+    color: #ffd700;
+    text-shadow: 3px 3px 0px #d35400, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+    background: linear-gradient(to bottom, #ffff00, #ff6600);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(255, 100, 0, 0.8));
+    animation: popupBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.combo-sub {
+    font-size: 1.5rem;
+    color: white;
+    font-weight: bold;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    opacity: 0;
+    animation: fadeInMoveUp 0.8s 0.2s forwards;
+}
+
+@keyframes popupBounce {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+
+    50% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+
+    70% {
+        transform: scale(0.9);
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 0;
+        transform-origin: center top;
+        margin-top: -50px;
+    }
+}
+
+@keyframes fadeInMoveUp {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    50% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
 
 /* Hand / Shapes */
 .hand-container {
@@ -430,16 +548,15 @@ body {
     gap: 1rem;
     justify-content: center;
     align-items: center;
-    margin-top: auto; /* Push to bottom */
+    margin-top: auto;
     width: 100%;
-    min-height: 130px;
+    min-height: 140px;
     padding: 10px;
     box-sizing: border-box;
-    /* Glass background for hand area */
     background: rgba(0,0,0,0.3);
     border-top: 1px solid rgba(255,255,255,0.05);
     border-radius: 20px 20px 0 0;
-    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
 }
 
 .shape-item {
@@ -486,7 +603,6 @@ body {
     position: fixed;
     pointer-events: none;
     z-index: 9999;
-    /* Transformation is handled via inline styles now */
     filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.4));
 }
 
