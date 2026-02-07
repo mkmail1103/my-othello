@@ -3,11 +3,32 @@ import { io, Socket } from 'socket.io-client';
 import './App.css';
 
 // ==========================================
-// SHARED TYPES
+// SHARED TYPES & THEMES
 // ==========================================
 export type PlayerColor = 'black' | 'white';
 export type CellState = PlayerColor | null;
 export type BoardState = CellState[][];
+
+type ThemeType = 'neon' | 'pastel' | 'misty';
+
+// Color Palettes for Block Puzzle
+const THEME_PALETTES = {
+    neon: {
+        green: '#34d399', blue: '#60a5fa', indigo: '#818cf8', yellow: '#facc15',
+        red: '#f87171', purple: '#c084fc', lime: '#a3e635', orange: '#fb923c',
+        pink: '#e879f9', teal: '#2dd4bf', rose: '#f43f5e'
+    },
+    pastel: {
+        green: '#bbf7d0', blue: '#bfdbfe', indigo: '#c7d2fe', yellow: '#fef08a',
+        red: '#fecaca', purple: '#e9d5ff', lime: '#d9f99d', orange: '#fed7aa',
+        pink: '#fbcfe8', teal: '#99f6e4', rose: '#fecdd3'
+    },
+    misty: {
+        green: '#84a59d', blue: '#8da9c4', indigo: '#6b705c', yellow: '#e9c46a',
+        red: '#e76f51', purple: '#a5a58d', lime: '#cb997e', orange: '#f4a261',
+        pink: '#b7b7a4', teal: '#264653', rose: '#ddbea9'
+    }
+};
 
 enum GameMode {
     MENU = 'MENU',
@@ -27,72 +48,51 @@ enum OthelloStatus {
 // BLOCK PUZZLE LOGIC & CONSTANTS
 // ==========================================
 
-// --- CONFIGURATION ---
 const DRAG_SENSITIVITY = 1.5;
 const TOUCH_OFFSET_Y = 100;
 
-// Base score table for line clears
 const BASE_SCORES: { [key: number]: number } = {
-    1: 10,
-    2: 20,
-    3: 60,
-    4: 120,
-    5: 200,
-    6: 300,
-    7: 420,
-    8: 560
+    1: 10, 2: 20, 3: 60, 4: 120, 5: 200, 6: 300, 7: 420, 8: 560
 };
+
+type ColorKey = keyof typeof THEME_PALETTES.neon;
 
 type ShapeDef = {
     id: string;
     matrix: number[][];
-    color: string;
-    difficulty: number; // 1 = easy/small, 3 = hard/big
+    colorKey: ColorKey; // Changed from hex string to key
+    difficulty: number;
 };
 
-// Updated Shapes based on "Block Blast" style + Requested Shapes
+// Updated Shapes using Color Keys
 const PUZZLE_SHAPES: ShapeDef[] = [
-    // Easy (Fillers)
-    { id: 'I1', matrix: [[1]], color: '#f43f5e', difficulty: 1 },
-
-    // Standard Lines
-    { id: 'I2', matrix: [[1, 1]], color: '#34d399', difficulty: 1 },
-    { id: 'I2_V', matrix: [[1], [1]], color: '#34d399', difficulty: 1 },
-    { id: 'I3', matrix: [[1, 1, 1]], color: '#60a5fa', difficulty: 2 },
-    { id: 'I3_V', matrix: [[1], [1], [1]], color: '#60a5fa', difficulty: 2 },
-    { id: 'I4', matrix: [[1, 1, 1, 1]], color: '#818cf8', difficulty: 2 },
-    { id: 'I4_V', matrix: [[1], [1], [1], [1]], color: '#818cf8', difficulty: 2 },
-    { id: 'I5', matrix: [[1, 1, 1, 1, 1]], color: '#facc15', difficulty: 3 },
-    { id: 'I5_V', matrix: [[1], [1], [1], [1], [1]], color: '#facc15', difficulty: 3 },
-
-    // Squares & Rects
-    { id: 'SQR2', matrix: [[1, 1], [1, 1]], color: '#f87171', difficulty: 2 },
-    { id: 'SQR3', matrix: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], color: '#c084fc', difficulty: 3 },
-    // New Requested Shapes
-    { id: 'RECT2x3', matrix: [[1, 1, 1], [1, 1, 1]], color: '#a3e635', difficulty: 3 },
-    { id: 'RECT3x2', matrix: [[1, 1], [1, 1], [1, 1]], color: '#a3e635', difficulty: 3 },
-
-    // L Shapes
-    { id: 'L3', matrix: [[1, 0], [1, 1]], color: '#a78bfa', difficulty: 1 },
-    { id: 'L3_R', matrix: [[0, 1], [1, 1]], color: '#a78bfa', difficulty: 1 },
-    { id: 'L3_V', matrix: [[1, 1], [1, 0]], color: '#a78bfa', difficulty: 1 },
-    { id: 'L3_VR', matrix: [[1, 1], [0, 1]], color: '#a78bfa', difficulty: 1 },
-
-    { id: 'L5', matrix: [[1, 0, 0], [1, 0, 0], [1, 1, 1]], color: '#fb923c', difficulty: 3 },
-    { id: 'L5_R', matrix: [[0, 0, 1], [0, 0, 1], [1, 1, 1]], color: '#fb923c', difficulty: 3 },
-
-    // T Shapes
-    { id: 'T3', matrix: [[1, 1, 1], [0, 1, 0]], color: '#e879f9', difficulty: 2 },
-    { id: 'T3_D', matrix: [[0, 1, 0], [1, 1, 1]], color: '#e879f9', difficulty: 2 },
-
-    // Z/S Shapes
-    { id: 'Z3', matrix: [[1, 1, 0], [0, 1, 1]], color: '#2dd4bf', difficulty: 2 },
-    { id: 'S3', matrix: [[0, 1, 1], [1, 1, 0]], color: '#2dd4bf', difficulty: 2 },
+    { id: 'I1', matrix: [[1]], colorKey: 'rose', difficulty: 1 },
+    { id: 'I2', matrix: [[1, 1]], colorKey: 'green', difficulty: 1 },
+    { id: 'I2_V', matrix: [[1], [1]], colorKey: 'green', difficulty: 1 },
+    { id: 'I3', matrix: [[1, 1, 1]], colorKey: 'blue', difficulty: 2 },
+    { id: 'I3_V', matrix: [[1], [1], [1]], colorKey: 'blue', difficulty: 2 },
+    { id: 'I4', matrix: [[1, 1, 1, 1]], colorKey: 'indigo', difficulty: 2 },
+    { id: 'I4_V', matrix: [[1], [1], [1], [1]], colorKey: 'indigo', difficulty: 2 },
+    { id: 'I5', matrix: [[1, 1, 1, 1, 1]], colorKey: 'yellow', difficulty: 3 },
+    { id: 'I5_V', matrix: [[1], [1], [1], [1], [1]], colorKey: 'yellow', difficulty: 3 },
+    { id: 'SQR2', matrix: [[1, 1], [1, 1]], colorKey: 'red', difficulty: 2 },
+    { id: 'SQR3', matrix: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], colorKey: 'purple', difficulty: 3 },
+    { id: 'RECT2x3', matrix: [[1, 1, 1], [1, 1, 1]], colorKey: 'lime', difficulty: 3 },
+    { id: 'RECT3x2', matrix: [[1, 1], [1, 1], [1, 1]], colorKey: 'lime', difficulty: 3 },
+    { id: 'L3', matrix: [[1, 0], [1, 1]], colorKey: 'purple', difficulty: 1 },
+    { id: 'L3_R', matrix: [[0, 1], [1, 1]], colorKey: 'purple', difficulty: 1 },
+    { id: 'L3_V', matrix: [[1, 1], [1, 0]], colorKey: 'purple', difficulty: 1 },
+    { id: 'L3_VR', matrix: [[1, 1], [0, 1]], colorKey: 'purple', difficulty: 1 },
+    { id: 'L5', matrix: [[1, 0, 0], [1, 0, 0], [1, 1, 1]], colorKey: 'orange', difficulty: 3 },
+    { id: 'L5_R', matrix: [[0, 0, 1], [0, 0, 1], [1, 1, 1]], colorKey: 'orange', difficulty: 3 },
+    { id: 'T3', matrix: [[1, 1, 1], [0, 1, 0]], colorKey: 'pink', difficulty: 2 },
+    { id: 'T3_D', matrix: [[0, 1, 0], [1, 1, 1]], colorKey: 'pink', difficulty: 2 },
+    { id: 'Z3', matrix: [[1, 1, 0], [0, 1, 1]], colorKey: 'teal', difficulty: 2 },
+    { id: 'S3', matrix: [[0, 1, 1], [1, 1, 0]], colorKey: 'teal', difficulty: 2 },
 ];
 
 // Helper: Smart Generation
 const getSmartShapes = (grid: (string | null)[][], count: number) => {
-    // Analyze board emptiness
     let filledCount = 0;
     grid.forEach(r => r.forEach(c => { if (c) filledCount++; }));
     const density = filledCount / 64;
@@ -100,16 +100,8 @@ const getSmartShapes = (grid: (string | null)[][], count: number) => {
     const shapes = [];
     for (let i = 0; i < count; i++) {
         let pool = PUZZLE_SHAPES;
-
-        // If board is dense (>40%), prioritize smaller/easier pieces for at least 1-2 slots
-        if (density > 0.4 && i < 2) {
-            pool = PUZZLE_SHAPES.filter(s => s.difficulty <= 2);
-        }
-        // If board is very dense (>70%), prioritize difficulty 1
-        if (density > 0.7 && i === 0) {
-            pool = PUZZLE_SHAPES.filter(s => s.difficulty === 1);
-        }
-
+        if (density > 0.4 && i < 2) pool = PUZZLE_SHAPES.filter(s => s.difficulty <= 2);
+        if (density > 0.7 && i === 0) pool = PUZZLE_SHAPES.filter(s => s.difficulty === 1);
         const rand = pool[Math.floor(Math.random() * pool.length)];
         shapes.push(rand);
     }
@@ -258,7 +250,7 @@ const OthelloGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </div>
                 </div>
             )}
-            <div className="scoreboard glass-panel">
+            <div className="scoreboard glass-panel othello-header">
                 <div className={`player-info ${turn === 'black' ? 'active-turn' : ''}`}>
                     <div className="score-indicator black"></div>
                     <div className="score-text"><span>BLACK {myColor === 'black' && <span className="you-tag">YOU</span>}</span><span className="score-value">{scores.black}</span></div>
@@ -315,40 +307,29 @@ const canPlace = (currentGrid: (string | null)[][], matrix: number[][], r: numbe
     return true;
 };
 
-// Returns arrays of row indices and col indices that would clear
 const getPotentialClears = (grid: (string | null)[][], matrix: number[][], r: number, c: number, color: string) => {
-    // Create a temp grid
     const tempGrid = grid.map(row => [...row]);
     const rows = matrix.length;
     const cols = matrix[0].length;
     for (let i = 0; i < rows; i++) {
         for (let j = 0; j < cols; j++) {
-            if (matrix[i][j] === 1) {
-                tempGrid[r + i][c + j] = color;
-            }
+            if (matrix[i][j] === 1) tempGrid[r + i][c + j] = color;
         }
     }
-
     const rowsToClear: number[] = [];
     const colsToClear: number[] = [];
-
-    for (let rr = 0; rr < 8; rr++) {
-        if (tempGrid[rr].every(cell => cell !== null)) rowsToClear.push(rr);
-    }
+    for (let rr = 0; rr < 8; rr++) { if (tempGrid[rr].every(cell => cell !== null)) rowsToClear.push(rr); }
     for (let cc = 0; cc < 8; cc++) {
         let full = true;
-        for (let rr = 0; rr < 8; rr++) {
-            if (tempGrid[rr][cc] === null) { full = false; break; }
-        }
+        for (let rr = 0; rr < 8; rr++) { if (tempGrid[rr][cc] === null) { full = false; break; } }
         if (full) colsToClear.push(cc);
     }
     return { rows: rowsToClear, cols: colsToClear };
 };
 
-const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ onBack, theme }) => {
     const [grid, setGrid] = useState<(string | null)[][]>(Array(8).fill(null).map(() => Array(8).fill(null)));
     const [clearingCells, setClearingCells] = useState<string[]>([]);
-    // Use smart shapes
     const [hand, setHand] = useState<(ShapeDef | null)[]>(() => getSmartShapes(Array(8).fill(Array(8).fill(null)), 3));
     const [score, setScore] = useState(0);
     const [combo, setCombo] = useState(0);
@@ -356,7 +337,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [comboText, setComboText] = useState<{ main: string, sub: string } | null>(null);
     const [isShaking, setIsShaking] = useState(false);
 
-    // Highlights & Visuals
     const [highlightLines, setHighlightLines] = useState<{ rows: number[], cols: number[] }>({ rows: [], cols: [] });
     const [floatingTexts, setFloatingTexts] = useState<{ id: number, x: number, y: number, text: string }[]>([]);
     const floatingTextId = useRef(0);
@@ -369,12 +349,10 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const boardRef = useRef<HTMLDivElement>(null);
     const boardMetrics = useRef<{ left: number, top: number, width: number, height: number, cellSize: number } | null>(null);
 
-    // Refill hand - Adjusted logic to wait for clearing
+    const getThemeColor = (key: ColorKey) => THEME_PALETTES[theme][key];
+
     useEffect(() => {
-        // Only refill if hand is empty AND we are not currently animating a clear
-        // This prevents refilling while the board is logically full but visually clearing
         if (hand.length > 0 && hand.every(h => h === null) && clearingCells.length === 0) {
-            // Wait a bit to ensure animations finish
             const timer = setTimeout(() => {
                 setHand(getSmartShapes(grid, 3));
             }, 300);
@@ -384,9 +362,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     const isGameOver = useMemo(() => {
         if (hand.every(h => h === null)) return false;
-        // If clearing, we are not game over yet
         if (clearingCells.length > 0) return false;
-
         let canMove = false;
         for (const shape of hand) {
             if (!shape) continue;
@@ -476,9 +452,9 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 }
             }
 
-            // Calculate potential clears for highlighting
             if (bestRow !== null && bestCol !== null) {
-                const clears = getPotentialClears(grid, shape.matrix, bestRow, bestCol, shape.color);
+                const color = getThemeColor(shape.colorKey);
+                const clears = getPotentialClears(grid, shape.matrix, bestRow, bestCol, color);
                 hRows = clears.rows;
                 hCols = clears.cols;
             }
@@ -496,27 +472,25 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const target = e.currentTarget as HTMLElement;
         target.releasePointerCapture(e.pointerId);
 
-        // Clear highlights
         setHighlightLines({ rows: [], cols: [] });
 
         if (shape && hoverRow !== null && hoverCol !== null) {
             if (canPlace(grid, shape.matrix, hoverRow, hoverCol)) {
+                const color = getThemeColor(shape.colorKey);
                 let placementScore = 0;
                 shape.matrix.forEach(row => row.forEach(val => { if (val === 1) placementScore++; }));
 
-                // Temp update for grid to calculate clear
                 const newGrid = grid.map(row => [...row]);
                 const rows = shape.matrix.length;
                 const cols = shape.matrix[0].length;
                 for (let i = 0; i < rows; i++) {
                     for (let j = 0; j < cols; j++) {
                         if (shape.matrix[i][j] === 1) {
-                            newGrid[hoverRow + i][hoverCol + j] = shape.color;
+                            newGrid[hoverRow + i][hoverCol + j] = color;
                         }
                     }
                 }
 
-                // Check clears immediately
                 const rowsToClear: number[] = [];
                 const colsToClear: number[] = [];
                 for (let r = 0; r < 8; r++) { if (newGrid[r].every(cell => cell !== null)) rowsToClear.push(r); }
@@ -535,9 +509,8 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     moveTotalScore += clearScore;
                 }
 
-                // Show floating text
                 addFloatingText(currentX, currentY - TOUCH_OFFSET_Y, `+${moveTotalScore}`);
-                setScore(prev => prev + placementScore); // Add placement score immediately
+                setScore(prev => prev + placementScore);
 
                 const newHand = [...hand];
                 newHand[shapeIdx] = null;
@@ -607,7 +580,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             setClearingCells(cellsToAnim);
 
             setTimeout(() => {
-                setScore(prev => prev + points); // Add clear score
+                setScore(prev => prev + points);
                 const nextGrid = currentGrid.map(row => [...row]);
                 rowsToClear.forEach(r => { for (let c = 0; c < 8; c++) nextGrid[r][c] = null; });
                 colsToClear.forEach(c => { for (let r = 0; r < 8; r++) nextGrid[r][c] = null; });
@@ -628,7 +601,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <div className="game-container puzzle-mode" style={{ touchAction: 'none' }}>
             {comboText && <div className="combo-popup"><div className="combo-text">{comboText.main}</div><div className="combo-sub">{comboText.sub}</div></div>}
 
-            {/* Floating Score Texts */}
             {floatingTexts.map(ft => (
                 <div key={ft.id} className="floating-text" style={{ left: ft.x, top: ft.y }}>
                     {ft.text}
@@ -645,18 +617,26 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
             )}
 
-            <div className="scoreboard glass-panel">
-                <div className="score-box" style={{ alignItems: 'center', width: '100%', flexDirection: 'column' }}>
-                    <span className="label" style={{ fontSize: '0.8rem', color: '#888' }}>SCORE</span>
+            <div className="scoreboard glass-panel puzzle-header-layout">
+                <div className="score-box left-align">
+                    <span className="label">SCORE</span>
                     <span className={`value puzzle-score ${combo > 0 ? 'combo-active' : ''}`}>{score}</span>
                 </div>
-                {combo > 0 && (
-                    <div className="combo-badge-container">
-                        <div className="combo-badge animate-pulse">{combo}x COMBO</div>
-                        {movesSinceClear > 0 && <div className="combo-warning">{movesSinceClear === 1 ? "⚠️" : "⚠️⚠️"}</div>}
-                    </div>
-                )}
-                <button onClick={onBack} className="leave-btn">Exit</button>
+
+                <div className="combo-center-area">
+                    {combo > 0 ? (
+                        <div className="combo-badge-container-static">
+                            <div className="combo-badge animate-pulse">{combo}x COMBO</div>
+                            {movesSinceClear > 0 && <div className="combo-warning">{movesSinceClear === 1 ? "⚠️" : "⚠️⚠️"}</div>}
+                        </div>
+                    ) : (
+                        <span className="game-title-small">BLOCK PUZZLE</span>
+                    )}
+                </div>
+
+                <div className="right-align">
+                    <button onClick={onBack} className="leave-btn">Exit</button>
+                </div>
             </div>
 
             <div className={`board-wrapper glass-panel ${isShaking ? 'shake-effect' : ''}`}>
@@ -665,15 +645,19 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         const cellKey = `${r}-${c}`;
                         const isGhost = ghostCells.includes(cellKey);
                         const isClearing = clearingCells.includes(cellKey);
-                        const isHighlight = highlightLines.rows.includes(r) || highlightLines.cols.includes(c);
+                        // Only highlight whole row/col, not just the cell
+                        const isHighlightRow = highlightLines.rows.includes(r);
+                        const isHighlightCol = highlightLines.cols.includes(c);
 
                         return (
                             <div
                                 key={cellKey}
-                                className={`cell puzzle-cell ${isGhost ? 'ghost-active' : ''} ${isClearing ? 'clearing' : ''} ${isHighlight ? 'potential-clear' : ''}`}
-                                style={cell ? { backgroundColor: cell, boxShadow: `0 0 8px ${cell}` } : {}}
+                                className={`cell puzzle-cell ${isGhost ? 'ghost-active' : ''} ${isClearing ? 'clearing' : ''}`}
+                                style={cell ? { backgroundColor: cell, boxShadow: `0 0 5px rgba(0,0,0,0.2)` } : {}}
                             >
                                 {isGhost && <div className="ghost-overlay" />}
+                                {/* Render clear guide overlay */}
+                                {(isHighlightRow || isHighlightCol) && <div className="potential-clear-overlay" />}
                             </div>
                         );
                     }))}
@@ -683,6 +667,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <div className="hand-container">
                 {hand.map((shape, idx) => {
                     const isDragging = dragState?.shapeIdx === idx;
+                    const color = shape ? getThemeColor(shape.colorKey) : 'transparent';
                     return (
                         <div
                             key={idx}
@@ -695,7 +680,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             {shape && (
                                 <div className="mini-grid" style={{ gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)`, width: `${shape.matrix[0].length * 20}px` }}>
                                     {shape.matrix.map((row, r) => row.map((val, c) => (
-                                        <div key={`${r}-${c}`} className="mini-cell" style={{ backgroundColor: val ? shape.color : 'transparent', boxShadow: val ? `0 0 5px ${shape.color}` : 'none' }} />
+                                        <div key={`${r}-${c}`} className="mini-cell" style={{ backgroundColor: val ? color : 'transparent' }} />
                                     )))}
                                 </div>
                             )}
@@ -712,8 +697,8 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     }}>
                         {hand[dragState.shapeIdx]!.matrix.map((row, r) => row.map((val, c) => (
                             <div key={`${r}-${c}`} className="mini-cell" style={{
-                                backgroundColor: val ? hand[dragState.shapeIdx]!.color : 'transparent',
-                                boxShadow: val ? `0 0 10px ${hand[dragState.shapeIdx]!.color}` : 'none',
+                                backgroundColor: val ? getThemeColor(hand[dragState.shapeIdx]!.colorKey) : 'transparent',
+                                // Removed box-shadow here as requested
                                 width: `${dragState.boardCellSize}px`, height: `${dragState.boardCellSize}px`, borderRadius: '4px'
                             }} />
                         )))}
@@ -731,10 +716,28 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
 const App: React.FC = () => {
     const [gameMode, setGameMode] = useState<GameMode>(GameMode.MENU);
+    const [theme, setTheme] = useState<ThemeType>('pastel'); // Default to Pastel
+
+    // Apply theme to body
+    useEffect(() => {
+        document.body.setAttribute('data-theme', theme);
+    }, [theme]);
+
+    const toggleTheme = () => {
+        setTheme(prev => {
+            if (prev === 'neon') return 'pastel';
+            if (prev === 'pastel') return 'misty';
+            return 'neon';
+        });
+    };
 
     if (gameMode === GameMode.MENU) {
         return (
             <div className="lobby-container">
+                <button className="theme-toggle-btn glass-panel" onClick={toggleTheme}>
+                    Theme: {theme.toUpperCase()}
+                </button>
+
                 <div className="lobby-card menu-card">
                     <h1 className="title neon-text">Game Menu</h1>
                     <div className="menu-buttons">
@@ -763,7 +766,7 @@ const App: React.FC = () => {
     }
 
     if (gameMode === GameMode.BLOCK_PUZZLE) {
-        return <BlockPuzzleGame onBack={() => setGameMode(GameMode.MENU)} />;
+        return <BlockPuzzleGame onBack={() => setGameMode(GameMode.MENU)} theme={theme} />;
     }
 
     return null;
