@@ -29,9 +29,21 @@ enum OthelloStatus {
 
 // --- CONFIGURATION ---
 // Sensitivity 1.0 = direct 1:1 tracking with finger
-const DRAG_SENSITIVITY = 1.4;
+const DRAG_SENSITIVITY = 1.0;
 // Offset Y to lift the block above the finger so it's visible
 const TOUCH_OFFSET_Y = 100;
+
+// Base score table for line clears
+const BASE_SCORES: { [key: number]: number } = {
+    1: 10,
+    2: 20,
+    3: 60,
+    4: 120,
+    5: 200,
+    6: 300,
+    7: 420, // Extrapolated
+    8: 560  // Extrapolated
+};
 
 type ShapeDef = {
     id: string;
@@ -314,6 +326,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [hand, setHand] = useState<(ShapeDef | null)[]>(() => getRandomShapes(3));
     const [score, setScore] = useState(0);
     const [combo, setCombo] = useState(0);
+    const [movesSinceClear, setMovesSinceClear] = useState(0); // For combo forgiveness
 
     // Visual Feedback States
     const [comboText, setComboText] = useState<{ main: string, sub: string } | null>(null);
@@ -476,6 +489,13 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
         if (shape && hoverRow !== null && hoverCol !== null) {
             if (canPlace(grid, shape.matrix, hoverRow, hoverCol)) {
+                // ADD SCORE FOR PLACEMENT: +1 per block cell (area)
+                let placementScore = 0;
+                shape.matrix.forEach(row => row.forEach(val => {
+                    if (val === 1) placementScore++;
+                }));
+                setScore(prev => prev + placementScore);
+
                 const newGrid = grid.map(row => [...row]);
                 const rows = shape.matrix.length;
                 const cols = shape.matrix[0].length;
@@ -542,8 +562,17 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const totalLines = rowsToClear.length + colsToClear.length;
 
         if (totalLines > 0) {
+            // --- COMBO LOGIC: HIT ---
+            setMovesSinceClear(0); // Reset forgiveness counter
             const newCombo = combo + 1;
             setCombo(newCombo);
+
+            // --- SCORE CALCULATION ---
+            // Formula: BaseScore * (Combo + 1)
+            // e.g. 1 line (10) * (30 + 1) = 310
+            const baseScore = BASE_SCORES[totalLines] || (totalLines * 60); // fallback if > 8 lines (unlikely)
+            const comboMultiplier = newCombo + 1;
+            const points = baseScore * comboMultiplier;
 
             // Effect Triggers
             if (newCombo >= 2) {
@@ -571,7 +600,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             setClearingCells(cellsToAnim);
 
             setTimeout(() => {
-                const points = (totalLines * 100) * newCombo;
                 setScore(prev => prev + points);
 
                 const nextGrid = currentGrid.map(row => [...row]);
@@ -586,8 +614,15 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 setClearingCells([]);
             }, 400);
         } else {
-            setCombo(0);
-            setScore(prev => prev + 10);
+            // --- COMBO LOGIC: MISS (Forgiveness) ---
+            const newMovesSinceClear = movesSinceClear + 1;
+            setMovesSinceClear(newMovesSinceClear);
+
+            // Allow 2 misses. Reset on the 3rd miss.
+            if (newMovesSinceClear > 2) {
+                setCombo(0);
+                setMovesSinceClear(0);
+            }
         }
     };
 
@@ -615,11 +650,24 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             )}
 
             <div className="scoreboard glass-panel">
-                <div className="score-box" style={{ alignItems: 'flex-start' }}>
-                    <span className="label">SCORE</span>
-                    <span className="value neon-text">{score}</span>
+                <div className="score-box" style={{ alignItems: 'center', width: '100%', flexDirection: 'column' }}>
+                    <span className="label" style={{ fontSize: '0.8rem', color: '#888' }}>SCORE</span>
+                    <span className={`value puzzle-score ${combo > 0 ? 'combo-active' : ''}`}>
+                        {score}
+                    </span>
                 </div>
-                {combo > 1 && <div className="combo-badge animate-pulse">{combo}x COMBO</div>}
+                {combo > 0 && (
+                    <div className="combo-badge-container">
+                        <div className="combo-badge animate-pulse">{combo}x COMBO</div>
+                        {/* Show forgiveness dots if applicable */}
+                        {movesSinceClear > 0 && (
+                            <div className="combo-warning">
+                                {movesSinceClear === 1 && "⚠️"}
+                                {movesSinceClear === 2 && "⚠️⚠️"}
+                            </div>
+                        )}
+                    </div>
+                )}
                 <button onClick={onBack} className="leave-btn">Exit</button>
             </div>
 
