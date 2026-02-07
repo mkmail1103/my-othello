@@ -28,9 +28,9 @@ enum OthelloStatus {
 // ==========================================
 
 // --- CONFIGURATION ---
-// Set sensitivity back to 1.0 (direct 1:1 movement) for better control
+// Sensitivity 1.0 = direct 1:1 tracking with finger
 const DRAG_SENSITIVITY = 1.4;
-// Offset to see the block under finger
+// Offset Y to lift the block above the finger so it's visible
 const TOUCH_OFFSET_Y = 100;
 
 type ShapeDef = {
@@ -330,7 +330,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         startPointerY: number;
         hoverRow: number | null;
         hoverCol: number | null;
-        boardCellSize: number; // Capture board cell size to render preview correctly
+        boardCellSize: number;
     } | null>(null);
 
     // Refs
@@ -411,7 +411,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const { shapeIdx, startX, startY, startPointerX, startPointerY } = dragState;
         const shape = hand[shapeIdx];
 
-        // Calculate raw position with sensitivity
+        // Calculate raw position with sensitivity 1.0 (exact finger tracking)
         const deltaX = (e.clientX - startPointerX) * DRAG_SENSITIVITY;
         const deltaY = (e.clientY - startPointerY) * DRAG_SENSITIVITY;
         const currentX = startX + deltaX;
@@ -426,19 +426,24 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             const shapeWidthPx = shape.matrix[0].length * cellSize;
             const shapeHeightPx = shape.matrix.length * cellSize;
 
-            // Where the user is visually holding the top-left of the shape
-            // (Assumed centered on finger plus offset)
+            // Visual Center of the dragged block
+            // Note: We render the block centered on currentX, currentY (roughly)
+            // The preview is translated -50%, -50% to be centered on the coordinate.
+            // So visual TopLeft is:
             const visualTopLeftX = currentX - (shapeWidthPx / 2);
-            const visualTopLeftY = currentY - (shapeHeightPx / 2) - TOUCH_OFFSET_Y;
+            const visualTopLeftY = currentY - TOUCH_OFFSET_Y - (shapeHeightPx / 2);
 
             let minDistance = Infinity;
-            const SNAP_THRESHOLD = cellSize * 2.0;
+            // Slightly generous threshold
+            const SNAP_THRESHOLD = cellSize * 2.5;
 
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
                     if (canPlace(grid, shape.matrix, r, c)) {
                         const targetX = left + (c * cellSize);
                         const targetY = top + (r * cellSize);
+
+                        // Distance between where the block IS visually vs where it WOULD BE on the board
                         const dist = Math.hypot(targetX - visualTopLeftX, targetY - visualTopLeftY);
 
                         if (dist < minDistance && dist < SNAP_THRESHOLD) {
@@ -501,7 +506,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         if (!shape) return [];
 
         const { hoverRow, hoverCol } = dragState;
-        // Logic handled in pointerMove ensures this is valid, but double check doesn't hurt
         if (canPlace(grid, shape.matrix, hoverRow, hoverCol)) {
             const cells = [];
             for (let i = 0; i < shape.matrix.length; i++) {
@@ -657,7 +661,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     style={{
                                         gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)`,
                                         // When in hand, use small fixed size cells (20px)
-                                        // The visual sizing is handled by container, but grid tracks internal
                                         width: `${shape.matrix[0].length * 20}px`
                                     }}
                                 >
@@ -684,15 +687,15 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     className="drag-preview"
                     style={{
                         left: dragState.currentX,
-                        top: dragState.currentY - TOUCH_OFFSET_Y, // Offset to see under finger
+                        top: dragState.currentY - TOUCH_OFFSET_Y, // Center vertically via offset and transform
+                        transform: 'translate(-50%, -50%)', // Center horizontally and vertically on the target point
                     }}
                 >
                     <div
                         className="mini-grid"
                         style={{
                             gridTemplateColumns: `repeat(${hand[dragState.shapeIdx]!.matrix[0].length}, 1fr)`,
-                            // CRITICAL FIX: Make the drag preview 1:1 with board size
-                            // Using the captured boardCellSize from handlePointerDown
+                            // 1:1 scale with board
                             width: `${hand[dragState.shapeIdx]!.matrix[0].length * dragState.boardCellSize}px`,
                             gap: '1px' // Match puzzle board gap
                         }}
