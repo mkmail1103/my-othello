@@ -28,9 +28,7 @@ enum OthelloStatus {
 // ==========================================
 
 // --- CONFIGURATION ---
-// Sensitivity 1.0 = direct 1:1 tracking with finger
 const DRAG_SENSITIVITY = 1.5;
-// Offset Y to lift the block above the finger so it's visible
 const TOUCH_OFFSET_Y = 100;
 
 // Base score table for line clears
@@ -41,54 +39,78 @@ const BASE_SCORES: { [key: number]: number } = {
     4: 120,
     5: 200,
     6: 300,
-    7: 420, // Extrapolated
-    8: 560  // Extrapolated
+    7: 420,
+    8: 560
 };
 
 type ShapeDef = {
     id: string;
     matrix: number[][];
     color: string;
+    difficulty: number; // 1 = easy/small, 3 = hard/big
 };
 
-// Updated Shapes based on "Block Blast" style
+// Updated Shapes based on "Block Blast" style + Requested Shapes
 const PUZZLE_SHAPES: ShapeDef[] = [
-    // Standard Lines
-    { id: 'I2', matrix: [[1, 1]], color: '#34d399' },
-    { id: 'I2_V', matrix: [[1], [1]], color: '#34d399' },
-    { id: 'I3', matrix: [[1, 1, 1]], color: '#60a5fa' },
-    { id: 'I3_V', matrix: [[1], [1], [1]], color: '#60a5fa' },
-    { id: 'I4', matrix: [[1, 1, 1, 1]], color: '#818cf8' },
-    { id: 'I4_V', matrix: [[1], [1], [1], [1]], color: '#818cf8' },
-    { id: 'I5', matrix: [[1, 1, 1, 1, 1]], color: '#facc15' }, // 5-line
-    { id: 'I5_V', matrix: [[1], [1], [1], [1], [1]], color: '#facc15' },
+    // Easy (Fillers)
+    { id: 'I1', matrix: [[1]], color: '#f43f5e', difficulty: 1 },
 
-    // Squares
-    { id: 'SQR2', matrix: [[1, 1], [1, 1]], color: '#f87171' }, // 2x2
-    { id: 'SQR3', matrix: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], color: '#c084fc' }, // 3x3 Big Block
+    // Standard Lines
+    { id: 'I2', matrix: [[1, 1]], color: '#34d399', difficulty: 1 },
+    { id: 'I2_V', matrix: [[1], [1]], color: '#34d399', difficulty: 1 },
+    { id: 'I3', matrix: [[1, 1, 1]], color: '#60a5fa', difficulty: 2 },
+    { id: 'I3_V', matrix: [[1], [1], [1]], color: '#60a5fa', difficulty: 2 },
+    { id: 'I4', matrix: [[1, 1, 1, 1]], color: '#818cf8', difficulty: 2 },
+    { id: 'I4_V', matrix: [[1], [1], [1], [1]], color: '#818cf8', difficulty: 2 },
+    { id: 'I5', matrix: [[1, 1, 1, 1, 1]], color: '#facc15', difficulty: 3 },
+    { id: 'I5_V', matrix: [[1], [1], [1], [1], [1]], color: '#facc15', difficulty: 3 },
+
+    // Squares & Rects
+    { id: 'SQR2', matrix: [[1, 1], [1, 1]], color: '#f87171', difficulty: 2 },
+    { id: 'SQR3', matrix: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], color: '#c084fc', difficulty: 3 },
+    // New Requested Shapes
+    { id: 'RECT2x3', matrix: [[1, 1, 1], [1, 1, 1]], color: '#a3e635', difficulty: 3 },
+    { id: 'RECT3x2', matrix: [[1, 1], [1, 1], [1, 1]], color: '#a3e635', difficulty: 3 },
 
     // L Shapes
-    { id: 'L3', matrix: [[1, 0], [1, 1]], color: '#a78bfa' }, // Small L
-    { id: 'L3_R', matrix: [[0, 1], [1, 1]], color: '#a78bfa' }, // Small L Mirrored
-    { id: 'L3_V', matrix: [[1, 1], [1, 0]], color: '#a78bfa' },
-    { id: 'L3_VR', matrix: [[1, 1], [0, 1]], color: '#a78bfa' },
+    { id: 'L3', matrix: [[1, 0], [1, 1]], color: '#a78bfa', difficulty: 1 },
+    { id: 'L3_R', matrix: [[0, 1], [1, 1]], color: '#a78bfa', difficulty: 1 },
+    { id: 'L3_V', matrix: [[1, 1], [1, 0]], color: '#a78bfa', difficulty: 1 },
+    { id: 'L3_VR', matrix: [[1, 1], [0, 1]], color: '#a78bfa', difficulty: 1 },
 
-    { id: 'L5', matrix: [[1, 0, 0], [1, 0, 0], [1, 1, 1]], color: '#fb923c' }, // Big L
-    { id: 'L5_R', matrix: [[0, 0, 1], [0, 0, 1], [1, 1, 1]], color: '#fb923c' },
+    { id: 'L5', matrix: [[1, 0, 0], [1, 0, 0], [1, 1, 1]], color: '#fb923c', difficulty: 3 },
+    { id: 'L5_R', matrix: [[0, 0, 1], [0, 0, 1], [1, 1, 1]], color: '#fb923c', difficulty: 3 },
 
     // T Shapes
-    { id: 'T3', matrix: [[1, 1, 1], [0, 1, 0]], color: '#e879f9' },
-    { id: 'T3_D', matrix: [[0, 1, 0], [1, 1, 1]], color: '#e879f9' },
+    { id: 'T3', matrix: [[1, 1, 1], [0, 1, 0]], color: '#e879f9', difficulty: 2 },
+    { id: 'T3_D', matrix: [[0, 1, 0], [1, 1, 1]], color: '#e879f9', difficulty: 2 },
 
     // Z/S Shapes
-    { id: 'Z3', matrix: [[1, 1, 0], [0, 1, 1]], color: '#2dd4bf' },
-    { id: 'S3', matrix: [[0, 1, 1], [1, 1, 0]], color: '#2dd4bf' },
+    { id: 'Z3', matrix: [[1, 1, 0], [0, 1, 1]], color: '#2dd4bf', difficulty: 2 },
+    { id: 'S3', matrix: [[0, 1, 1], [1, 1, 0]], color: '#2dd4bf', difficulty: 2 },
 ];
 
-const getRandomShapes = (count: number) => {
+// Helper: Smart Generation
+const getSmartShapes = (grid: (string | null)[][], count: number) => {
+    // Analyze board emptiness
+    let filledCount = 0;
+    grid.forEach(r => r.forEach(c => { if (c) filledCount++; }));
+    const density = filledCount / 64;
+
     const shapes = [];
     for (let i = 0; i < count; i++) {
-        const rand = PUZZLE_SHAPES[Math.floor(Math.random() * PUZZLE_SHAPES.length)];
+        let pool = PUZZLE_SHAPES;
+
+        // If board is dense (>40%), prioritize smaller/easier pieces for at least 1-2 slots
+        if (density > 0.4 && i < 2) {
+            pool = PUZZLE_SHAPES.filter(s => s.difficulty <= 2);
+        }
+        // If board is very dense (>70%), prioritize difficulty 1
+        if (density > 0.7 && i === 0) {
+            pool = PUZZLE_SHAPES.filter(s => s.difficulty === 1);
+        }
+
+        const rand = pool[Math.floor(Math.random() * pool.length)];
         shapes.push(rand);
     }
     return shapes;
@@ -117,7 +139,6 @@ const OthelloGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [notification, setNotification] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Othello logic helpers
     const getValidMoves = useCallback((currentBoard: BoardState, player: PlayerColor) => {
         const moves: { r: number; c: number }[] = [];
         const directions = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
@@ -156,7 +177,6 @@ const OthelloGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setScores({ black: b, white: w });
     }, []);
 
-    // Socket Setup
     useEffect(() => {
         const newSocket = io();
         setSocket(newSocket);
@@ -206,7 +226,6 @@ const OthelloGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         return [];
     }, [board, status, turn, myColor, getValidMoves]);
 
-    // RENDER LOBBY
     if (status === OthelloStatus.LOBBY) {
         return (
             <div className="lobby-container">
@@ -215,13 +234,7 @@ const OthelloGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <h1 className="title neon-text">Othello Lobby</h1>
                     <div className="input-group">
                         <label>Room ID</label>
-                        <input
-                            type="text"
-                            value={inputRoomID}
-                            onChange={(e) => setInputRoomID(e.target.value)}
-                            placeholder="Enter room name..."
-                            onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
-                        />
+                        <input type="text" value={inputRoomID} onChange={(e) => setInputRoomID(e.target.value)} placeholder="Enter room name..." onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()} />
                     </div>
                     <button onClick={handleJoinRoom} className="join-btn neon-btn">Join / Create Room</button>
                     {error && <div className="error-msg">{error}</div>}
@@ -230,7 +243,6 @@ const OthelloGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         );
     }
 
-    // RENDER GAME
     return (
         <div className="game-container">
             {status === OthelloStatus.FINISHED && (
@@ -246,7 +258,6 @@ const OthelloGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </div>
                 </div>
             )}
-
             <div className="scoreboard glass-panel">
                 <div className={`player-info ${turn === 'black' ? 'active-turn' : ''}`}>
                     <div className="score-indicator black"></div>
@@ -255,10 +266,7 @@ const OthelloGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <div className="game-status">
                     <div className="room-id">Room: {roomID}</div>
                     <div className={`status-badge ${myColor === turn ? 'my-turn' : ''}`}>
-                        {status === OthelloStatus.WAITING ? 'Waiting...' :
-                            status === OthelloStatus.FINISHED ? 'GAME OVER' :
-                                status === OthelloStatus.ABORTED ? 'Left' :
-                                    myColor === turn ? 'YOUR TURN' : "OPPONENT"}
+                        {status === OthelloStatus.WAITING ? 'Waiting...' : status === OthelloStatus.FINISHED ? 'GAME OVER' : status === OthelloStatus.ABORTED ? 'Left' : myColor === turn ? 'YOUR TURN' : "OPPONENT"}
                     </div>
                 </div>
                 <div className={`player-info ${turn === 'white' ? 'active-turn' : ''}`}>
@@ -266,9 +274,7 @@ const OthelloGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <div className="score-indicator white"></div>
                 </div>
             </div>
-
             {notification && <div className="notification-toast">{notification}</div>}
-
             <div className="board-wrapper glass-panel">
                 <div className="board">
                     {board.map((row, r) => row.map((cell, c) => {
@@ -284,10 +290,7 @@ const OthelloGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     }))}
                 </div>
             </div>
-
-            <div className="controls">
-                <button onClick={onBack} className="leave-btn">Exit to Menu</button>
-            </div>
+            <div className="controls"><button onClick={onBack} className="leave-btn">Exit to Menu</button></div>
         </div>
     );
 };
@@ -296,11 +299,9 @@ const OthelloGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 // COMPONENTS: BLOCK PUZZLE
 // ==========================================
 
-// Helper: Can Place?
 const canPlace = (currentGrid: (string | null)[][], matrix: number[][], r: number, c: number) => {
     const rows = matrix.length;
     const cols = matrix[0].length;
-
     for (let i = 0; i < rows; i++) {
         for (let j = 0; j < cols; j++) {
             if (matrix[i][j] === 1) {
@@ -314,52 +315,76 @@ const canPlace = (currentGrid: (string | null)[][], matrix: number[][], r: numbe
     return true;
 };
 
-const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-    // 8x8 Grid
-    const [grid, setGrid] = useState<(string | null)[][]>(
-        Array(8).fill(null).map(() => Array(8).fill(null))
-    );
-    // Cells that are currently clearing (for animation)
-    const [clearingCells, setClearingCells] = useState<string[]>([]);
+// Returns arrays of row indices and col indices that would clear
+const getPotentialClears = (grid: (string | null)[][], matrix: number[][], r: number, c: number, color: string) => {
+    // Create a temp grid
+    const tempGrid = grid.map(row => [...row]);
+    const rows = matrix.length;
+    const cols = matrix[0].length;
+    for (let i = 0; i < rows; i++) {
+        for (let j = 0; j < cols; j++) {
+            if (matrix[i][j] === 1) {
+                tempGrid[r + i][c + j] = color;
+            }
+        }
+    }
 
-    // Initial load
-    const [hand, setHand] = useState<(ShapeDef | null)[]>(() => getRandomShapes(3));
+    const rowsToClear: number[] = [];
+    const colsToClear: number[] = [];
+
+    for (let rr = 0; rr < 8; rr++) {
+        if (tempGrid[rr].every(cell => cell !== null)) rowsToClear.push(rr);
+    }
+    for (let cc = 0; cc < 8; cc++) {
+        let full = true;
+        for (let rr = 0; rr < 8; rr++) {
+            if (tempGrid[rr][cc] === null) { full = false; break; }
+        }
+        if (full) colsToClear.push(cc);
+    }
+    return { rows: rowsToClear, cols: colsToClear };
+};
+
+const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+    const [grid, setGrid] = useState<(string | null)[][]>(Array(8).fill(null).map(() => Array(8).fill(null)));
+    const [clearingCells, setClearingCells] = useState<string[]>([]);
+    // Use smart shapes
+    const [hand, setHand] = useState<(ShapeDef | null)[]>(() => getSmartShapes(Array(8).fill(Array(8).fill(null)), 3));
     const [score, setScore] = useState(0);
     const [combo, setCombo] = useState(0);
-    const [movesSinceClear, setMovesSinceClear] = useState(0); // For combo forgiveness
-
-    // Visual Feedback States
+    const [movesSinceClear, setMovesSinceClear] = useState(0);
     const [comboText, setComboText] = useState<{ main: string, sub: string } | null>(null);
     const [isShaking, setIsShaking] = useState(false);
 
-    // DRAG STATE
+    // Highlights & Visuals
+    const [highlightLines, setHighlightLines] = useState<{ rows: number[], cols: number[] }>({ rows: [], cols: [] });
+    const [floatingTexts, setFloatingTexts] = useState<{ id: number, x: number, y: number, text: string }[]>([]);
+    const floatingTextId = useRef(0);
+
     const [dragState, setDragState] = useState<{
-        shapeIdx: number;
-        startX: number;
-        startY: number;
-        currentX: number;
-        currentY: number;
-        startPointerX: number;
-        startPointerY: number;
-        hoverRow: number | null;
-        hoverCol: number | null;
-        boardCellSize: number;
+        shapeIdx: number; startX: number; startY: number; currentX: number; currentY: number;
+        startPointerX: number; startPointerY: number; hoverRow: number | null; hoverCol: number | null; boardCellSize: number;
     } | null>(null);
 
-    // Refs
     const boardRef = useRef<HTMLDivElement>(null);
     const boardMetrics = useRef<{ left: number, top: number, width: number, height: number, cellSize: number } | null>(null);
 
-    // Refill hand
+    // Refill hand - Adjusted logic to wait for clearing
     useEffect(() => {
-        if (hand.length > 0 && hand.every(h => h === null)) {
-            setTimeout(() => setHand(getRandomShapes(3)), 300);
+        // Only refill if hand is empty AND we are not currently animating a clear
+        // This prevents refilling while the board is logically full but visually clearing
+        if (hand.length > 0 && hand.every(h => h === null) && clearingCells.length === 0) {
+            // Wait a bit to ensure animations finish
+            const timer = setTimeout(() => {
+                setHand(getSmartShapes(grid, 3));
+            }, 300);
+            return () => clearTimeout(timer);
         }
-    }, [hand]);
+    }, [hand, clearingCells.length, grid]);
 
-    // Check Game Over
     const isGameOver = useMemo(() => {
         if (hand.every(h => h === null)) return false;
+        // If clearing, we are not game over yet
         if (clearingCells.length > 0) return false;
 
         let canMove = false;
@@ -376,43 +401,35 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             }
             if (canMove) break;
         }
-
         return !canMove;
     }, [hand, grid, clearingCells.length]);
 
-    // --- Drag Logic ---
+    const addFloatingText = (x: number, y: number, text: string) => {
+        const id = floatingTextId.current++;
+        setFloatingTexts(prev => [...prev, { id, x, y, text }]);
+        setTimeout(() => {
+            setFloatingTexts(prev => prev.filter(ft => ft.id !== id));
+        }, 1000);
+    };
 
     const handlePointerDown = (e: React.PointerEvent, idx: number) => {
         if (isGameOver || hand[idx] === null) return;
-
         const target = e.currentTarget as HTMLElement;
         target.setPointerCapture(e.pointerId);
 
-        let currentCellSize = 40; // Default fallback
+        let currentCellSize = 40;
         if (boardRef.current) {
             const rect = boardRef.current.getBoundingClientRect();
-            const calculatedCellSize = rect.width / 8;
-            currentCellSize = calculatedCellSize;
-
-            boardMetrics.current = {
-                left: rect.left,
-                top: rect.top,
-                width: rect.width,
-                height: rect.height,
-                cellSize: calculatedCellSize
-            };
+            currentCellSize = rect.width / 8;
+            boardMetrics.current = { left: rect.left, top: rect.top, width: rect.width, height: rect.height, cellSize: currentCellSize };
         }
 
         setDragState({
             shapeIdx: idx,
-            startX: e.clientX,
-            startY: e.clientY,
-            startPointerX: e.clientX,
-            startPointerY: e.clientY,
-            currentX: e.clientX,
-            currentY: e.clientY,
-            hoverRow: null,
-            hoverCol: null,
+            startX: e.clientX, startY: e.clientY,
+            startPointerX: e.clientX, startPointerY: e.clientY,
+            currentX: e.clientX, currentY: e.clientY,
+            hoverRow: null, hoverCol: null,
             boardCellSize: currentCellSize
         });
     };
@@ -420,11 +437,9 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const handlePointerMove = (e: React.PointerEvent) => {
         if (!dragState) return;
         e.preventDefault();
-
         const { shapeIdx, startX, startY, startPointerX, startPointerY } = dragState;
         const shape = hand[shapeIdx];
 
-        // Calculate raw position with sensitivity 1.0 (exact finger tracking)
         const deltaX = (e.clientX - startPointerX) * DRAG_SENSITIVITY;
         const deltaY = (e.clientY - startPointerY) * DRAG_SENSITIVITY;
         const currentX = startX + deltaX;
@@ -432,22 +447,17 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
         let bestRow: number | null = null;
         let bestCol: number | null = null;
+        let hRows: number[] = [];
+        let hCols: number[] = [];
 
-        // SMART SNAP LOGIC
         if (shape && boardMetrics.current) {
             const { left, top, cellSize } = boardMetrics.current;
             const shapeWidthPx = shape.matrix[0].length * cellSize;
             const shapeHeightPx = shape.matrix.length * cellSize;
-
-            // Visual Center of the dragged block
-            // Note: We render the block centered on currentX, currentY (roughly)
-            // The preview is translated -50%, -50% to be centered on the coordinate.
-            // So visual TopLeft is:
             const visualTopLeftX = currentX - (shapeWidthPx / 2);
             const visualTopLeftY = currentY - TOUCH_OFFSET_Y - (shapeHeightPx / 2);
 
             let minDistance = Infinity;
-            // Slightly generous threshold
             const SNAP_THRESHOLD = cellSize * 2.5;
 
             for (let r = 0; r < 8; r++) {
@@ -455,8 +465,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     if (canPlace(grid, shape.matrix, r, c)) {
                         const targetX = left + (c * cellSize);
                         const targetY = top + (r * cellSize);
-
-                        // Distance between where the block IS visually vs where it WOULD BE on the board
                         const dist = Math.hypot(targetX - visualTopLeftX, targetY - visualTopLeftY);
 
                         if (dist < minDistance && dist < SNAP_THRESHOLD) {
@@ -467,39 +475,39 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     }
                 }
             }
+
+            // Calculate potential clears for highlighting
+            if (bestRow !== null && bestCol !== null) {
+                const clears = getPotentialClears(grid, shape.matrix, bestRow, bestCol, shape.color);
+                hRows = clears.rows;
+                hCols = clears.cols;
+            }
         }
 
-        setDragState(prev => prev ? {
-            ...prev,
-            currentX,
-            currentY,
-            hoverRow: bestRow,
-            hoverCol: bestCol
-        } : null);
+        setHighlightLines({ rows: hRows, cols: hCols });
+        setDragState(prev => prev ? { ...prev, currentX, currentY, hoverRow: bestRow, hoverCol: bestCol } : null);
     };
 
     const handlePointerUp = (e: React.PointerEvent) => {
         if (!dragState) return;
-
-        const { shapeIdx, hoverRow, hoverCol } = dragState;
+        const { shapeIdx, hoverRow, hoverCol, currentX, currentY } = dragState;
         const shape = hand[shapeIdx];
 
         const target = e.currentTarget as HTMLElement;
         target.releasePointerCapture(e.pointerId);
 
+        // Clear highlights
+        setHighlightLines({ rows: [], cols: [] });
+
         if (shape && hoverRow !== null && hoverCol !== null) {
             if (canPlace(grid, shape.matrix, hoverRow, hoverCol)) {
-                // ADD SCORE FOR PLACEMENT: +1 per block cell (area)
                 let placementScore = 0;
-                shape.matrix.forEach(row => row.forEach(val => {
-                    if (val === 1) placementScore++;
-                }));
-                setScore(prev => prev + placementScore);
+                shape.matrix.forEach(row => row.forEach(val => { if (val === 1) placementScore++; }));
 
+                // Temp update for grid to calculate clear
                 const newGrid = grid.map(row => [...row]);
                 const rows = shape.matrix.length;
                 const cols = shape.matrix[0].length;
-
                 for (let i = 0; i < rows; i++) {
                     for (let j = 0; j < cols; j++) {
                         if (shape.matrix[i][j] === 1) {
@@ -507,6 +515,29 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         }
                     }
                 }
+
+                // Check clears immediately
+                const rowsToClear: number[] = [];
+                const colsToClear: number[] = [];
+                for (let r = 0; r < 8; r++) { if (newGrid[r].every(cell => cell !== null)) rowsToClear.push(r); }
+                for (let c = 0; c < 8; c++) {
+                    let full = true;
+                    for (let r = 0; r < 8; r++) { if (newGrid[r][c] === null) { full = false; break; } }
+                    if (full) colsToClear.push(c);
+                }
+                const totalLines = rowsToClear.length + colsToClear.length;
+
+                let moveTotalScore = placementScore;
+                if (totalLines > 0) {
+                    const nextCombo = combo + 1;
+                    const baseScore = BASE_SCORES[totalLines] || (totalLines * 60);
+                    const clearScore = baseScore * (nextCombo + 1);
+                    moveTotalScore += clearScore;
+                }
+
+                // Show floating text
+                addFloatingText(currentX, currentY - TOUCH_OFFSET_Y, `+${moveTotalScore}`);
+                setScore(prev => prev + placementScore); // Add placement score immediately
 
                 const newHand = [...hand];
                 newHand[shapeIdx] = null;
@@ -516,7 +547,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 checkLinesAndScore(newGrid);
             }
         }
-
         setDragState(null);
     };
 
@@ -524,7 +554,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         if (!dragState || dragState.hoverRow === null || dragState.hoverCol === null) return [];
         const shape = hand[dragState.shapeIdx];
         if (!shape) return [];
-
         const { hoverRow, hoverCol } = dragState;
         if (canPlace(grid, shape.matrix, hoverRow, hoverCol)) {
             const cells = [];
@@ -540,85 +569,54 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         return [];
     }, [dragState, grid, hand]);
 
-
     const checkLinesAndScore = (currentGrid: (string | null)[][]) => {
         const rowsToClear: number[] = [];
         const colsToClear: number[] = [];
-
-        for (let r = 0; r < 8; r++) {
-            if (currentGrid[r].every(cell => cell !== null)) rowsToClear.push(r);
-        }
+        for (let r = 0; r < 8; r++) { if (currentGrid[r].every(cell => cell !== null)) rowsToClear.push(r); }
         for (let c = 0; c < 8; c++) {
             let full = true;
-            for (let r = 0; r < 8; r++) {
-                if (currentGrid[r][c] === null) {
-                    full = false;
-                    break;
-                }
-            }
+            for (let r = 0; r < 8; r++) { if (currentGrid[r][c] === null) { full = false; break; } }
             if (full) colsToClear.push(c);
         }
 
         const totalLines = rowsToClear.length + colsToClear.length;
 
         if (totalLines > 0) {
-            // --- COMBO LOGIC: HIT ---
-            setMovesSinceClear(0); // Reset forgiveness counter
+            setMovesSinceClear(0);
             const newCombo = combo + 1;
             setCombo(newCombo);
 
-            // --- SCORE CALCULATION ---
-            // Formula: BaseScore * (Combo + 1)
-            // e.g. 1 line (10) * (30 + 1) = 310
-            const baseScore = BASE_SCORES[totalLines] || (totalLines * 60); // fallback if > 8 lines (unlikely)
-            const comboMultiplier = newCombo + 1;
-            const points = baseScore * comboMultiplier;
+            const baseScore = BASE_SCORES[totalLines] || (totalLines * 60);
+            const points = baseScore * (newCombo + 1);
 
-            // Effect Triggers
             if (newCombo >= 2) {
                 let mainText = "Great!";
                 if (newCombo >= 4) mainText = "Amazing!";
                 if (newCombo >= 6) mainText = "Perfect!";
                 if (totalLines >= 3) mainText = "Incredible!";
-
                 setComboText({ main: mainText, sub: `Combo x${newCombo}` });
                 setTimeout(() => setComboText(null), 1500);
             }
 
-            // Shake Effect
             setIsShaking(true);
             setTimeout(() => setIsShaking(false), 500);
 
-            // Mark cells for animation
             const cellsToAnim: string[] = [];
-            rowsToClear.forEach(r => {
-                for (let c = 0; c < 8; c++) cellsToAnim.push(`${r}-${c}`);
-            });
-            colsToClear.forEach(c => {
-                for (let r = 0; r < 8; r++) cellsToAnim.push(`${r}-${c}`);
-            });
+            rowsToClear.forEach(r => { for (let c = 0; c < 8; c++) cellsToAnim.push(`${r}-${c}`); });
+            colsToClear.forEach(c => { for (let r = 0; r < 8; r++) cellsToAnim.push(`${r}-${c}`); });
             setClearingCells(cellsToAnim);
 
             setTimeout(() => {
-                setScore(prev => prev + points);
-
+                setScore(prev => prev + points); // Add clear score
                 const nextGrid = currentGrid.map(row => [...row]);
-                rowsToClear.forEach(r => {
-                    for (let c = 0; c < 8; c++) nextGrid[r][c] = null;
-                });
-                colsToClear.forEach(c => {
-                    for (let r = 0; r < 8; r++) nextGrid[r][c] = null;
-                });
-
+                rowsToClear.forEach(r => { for (let c = 0; c < 8; c++) nextGrid[r][c] = null; });
+                colsToClear.forEach(c => { for (let r = 0; r < 8; r++) nextGrid[r][c] = null; });
                 setGrid(nextGrid);
                 setClearingCells([]);
             }, 400);
         } else {
-            // --- COMBO LOGIC: MISS (Forgiveness) ---
             const newMovesSinceClear = movesSinceClear + 1;
             setMovesSinceClear(newMovesSinceClear);
-
-            // Allow 2 misses. Reset on the 3rd miss.
             if (newMovesSinceClear > 2) {
                 setCombo(0);
                 setMovesSinceClear(0);
@@ -628,22 +626,20 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     return (
         <div className="game-container puzzle-mode" style={{ touchAction: 'none' }}>
+            {comboText && <div className="combo-popup"><div className="combo-text">{comboText.main}</div><div className="combo-sub">{comboText.sub}</div></div>}
 
-            {/* Combo Popup Text */}
-            {comboText && (
-                <div className="combo-popup">
-                    <div className="combo-text">{comboText.main}</div>
-                    <div className="combo-sub">{comboText.sub}</div>
+            {/* Floating Score Texts */}
+            {floatingTexts.map(ft => (
+                <div key={ft.id} className="floating-text" style={{ left: ft.x, top: ft.y }}>
+                    {ft.text}
                 </div>
-            )}
+            ))}
 
             {isGameOver && (
                 <div className="result-overlay">
                     <div className="result-card lose">
                         <h1 className="result-title neon-text-red">GAME OVER</h1>
-                        <div className="final-score">
-                            <div className="score-box"><span className="label">SCORE</span><span className="value">{score}</span></div>
-                        </div>
+                        <div className="final-score"><div className="score-box"><span className="label">SCORE</span><span className="value">{score}</span></div></div>
                         <button onClick={() => window.location.reload()} className="rematch-btn neon-btn">Try Again</button>
                     </div>
                 </div>
@@ -652,20 +648,12 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <div className="scoreboard glass-panel">
                 <div className="score-box" style={{ alignItems: 'center', width: '100%', flexDirection: 'column' }}>
                     <span className="label" style={{ fontSize: '0.8rem', color: '#888' }}>SCORE</span>
-                    <span className={`value puzzle-score ${combo > 0 ? 'combo-active' : ''}`}>
-                        {score}
-                    </span>
+                    <span className={`value puzzle-score ${combo > 0 ? 'combo-active' : ''}`}>{score}</span>
                 </div>
                 {combo > 0 && (
                     <div className="combo-badge-container">
                         <div className="combo-badge animate-pulse">{combo}x COMBO</div>
-                        {/* Show forgiveness dots if applicable */}
-                        {movesSinceClear > 0 && (
-                            <div className="combo-warning">
-                                {movesSinceClear === 1 && "⚠️"}
-                                {movesSinceClear === 2 && "⚠️⚠️"}
-                            </div>
-                        )}
+                        {movesSinceClear > 0 && <div className="combo-warning">{movesSinceClear === 1 ? "⚠️" : "⚠️⚠️"}</div>}
                     </div>
                 )}
                 <button onClick={onBack} className="leave-btn">Exit</button>
@@ -677,11 +665,12 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         const cellKey = `${r}-${c}`;
                         const isGhost = ghostCells.includes(cellKey);
                         const isClearing = clearingCells.includes(cellKey);
+                        const isHighlight = highlightLines.rows.includes(r) || highlightLines.cols.includes(c);
 
                         return (
                             <div
                                 key={cellKey}
-                                className={`cell puzzle-cell ${isGhost ? 'ghost-active' : ''} ${isClearing ? 'clearing' : ''}`}
+                                className={`cell puzzle-cell ${isGhost ? 'ghost-active' : ''} ${isClearing ? 'clearing' : ''} ${isHighlight ? 'potential-clear' : ''}`}
                                 style={cell ? { backgroundColor: cell, boxShadow: `0 0 8px ${cell}` } : {}}
                             >
                                 {isGhost && <div className="ghost-overlay" />}
@@ -704,23 +693,9 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             onPointerCancel={handlePointerUp}
                         >
                             {shape && (
-                                <div
-                                    className="mini-grid"
-                                    style={{
-                                        gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)`,
-                                        // When in hand, use small fixed size cells (20px)
-                                        width: `${shape.matrix[0].length * 20}px`
-                                    }}
-                                >
+                                <div className="mini-grid" style={{ gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)`, width: `${shape.matrix[0].length * 20}px` }}>
                                     {shape.matrix.map((row, r) => row.map((val, c) => (
-                                        <div
-                                            key={`${r}-${c}`}
-                                            className="mini-cell"
-                                            style={{
-                                                backgroundColor: val ? shape.color : 'transparent',
-                                                boxShadow: val ? `0 0 5px ${shape.color}` : 'none'
-                                            }}
-                                        />
+                                        <div key={`${r}-${c}`} className="mini-cell" style={{ backgroundColor: val ? shape.color : 'transparent', boxShadow: val ? `0 0 5px ${shape.color}` : 'none' }} />
                                     )))}
                                 </div>
                             )}
@@ -729,46 +704,23 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 })}
             </div>
 
-            {/* Draggable Portal / Overlay */}
             {dragState && hand[dragState.shapeIdx] && (
-                <div
-                    className="drag-preview"
-                    style={{
-                        left: dragState.currentX,
-                        top: dragState.currentY - TOUCH_OFFSET_Y, // Center vertically via offset and transform
-                        transform: 'translate(-50%, -50%)', // Center horizontally and vertically on the target point
-                    }}
-                >
-                    <div
-                        className="mini-grid"
-                        style={{
-                            gridTemplateColumns: `repeat(${hand[dragState.shapeIdx]!.matrix[0].length}, 1fr)`,
-                            // 1:1 scale with board
-                            width: `${hand[dragState.shapeIdx]!.matrix[0].length * dragState.boardCellSize}px`,
-                            gap: '1px' // Match puzzle board gap
-                        }}
-                    >
+                <div className="drag-preview" style={{ left: dragState.currentX, top: dragState.currentY - TOUCH_OFFSET_Y, transform: 'translate(-50%, -50%)' }}>
+                    <div className="mini-grid" style={{
+                        gridTemplateColumns: `repeat(${hand[dragState.shapeIdx]!.matrix[0].length}, 1fr)`,
+                        width: `${hand[dragState.shapeIdx]!.matrix[0].length * dragState.boardCellSize}px`, gap: '1px'
+                    }}>
                         {hand[dragState.shapeIdx]!.matrix.map((row, r) => row.map((val, c) => (
-                            <div
-                                key={`${r}-${c}`}
-                                className="mini-cell"
-                                style={{
-                                    backgroundColor: val ? hand[dragState.shapeIdx]!.color : 'transparent',
-                                    boxShadow: val ? `0 0 10px ${hand[dragState.shapeIdx]!.color}` : 'none',
-                                    // Use dynamic size matching the board
-                                    width: `${dragState.boardCellSize}px`,
-                                    height: `${dragState.boardCellSize}px`,
-                                    borderRadius: '4px'
-                                }}
-                            />
+                            <div key={`${r}-${c}`} className="mini-cell" style={{
+                                backgroundColor: val ? hand[dragState.shapeIdx]!.color : 'transparent',
+                                boxShadow: val ? `0 0 10px ${hand[dragState.shapeIdx]!.color}` : 'none',
+                                width: `${dragState.boardCellSize}px`, height: `${dragState.boardCellSize}px`, borderRadius: '4px'
+                            }} />
                         )))}
                     </div>
                 </div>
             )}
-
-            <div className="instructions">
-                Drag blocks to grid
-            </div>
+            <div className="instructions">Drag blocks to grid</div>
         </div>
     );
 };
