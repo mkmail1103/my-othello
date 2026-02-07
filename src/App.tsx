@@ -9,9 +9,10 @@ export type PlayerColor = 'black' | 'white';
 export type CellState = PlayerColor | null;
 export type BoardState = CellState[][];
 
-type ThemeType = 'neon' | 'pastel' | 'misty';
+type ThemeType = 'neon' | 'pastel' | 'misty' | 'muted-blue' | 'muted-purple';
 
 // Color Palettes for Block Puzzle
+// Extended with new themes mapping
 const THEME_PALETTES = {
     neon: {
         green: '#34d399', blue: '#60a5fa', indigo: '#818cf8', yellow: '#facc15',
@@ -27,6 +28,16 @@ const THEME_PALETTES = {
         green: '#84a59d', blue: '#8da9c4', indigo: '#6b705c', yellow: '#e9c46a',
         red: '#e76f51', purple: '#a5a58d', lime: '#cb997e', orange: '#f4a261',
         pink: '#b7b7a4', teal: '#264653', rose: '#ddbea9'
+    },
+    'muted-blue': {
+        green: '#7393B3', blue: '#5F9EA0', indigo: '#4682B4', yellow: '#B0C4DE',
+        red: '#CD5C5C', purple: '#778899', lime: '#8FBC8F', orange: '#E9967A',
+        pink: '#D8BFD8', teal: '#5F9EA0', rose: '#BC8F8F'
+    },
+    'muted-purple': {
+        green: '#8FBC8F', blue: '#B0C4DE', indigo: '#9370DB', yellow: '#EEE8AA',
+        red: '#DB7093', purple: '#BA55D3', lime: '#98FB98', orange: '#FFA07A',
+        pink: '#DDA0DD', teal: '#66CDAA', rose: '#FFB6C1'
     }
 };
 
@@ -645,7 +656,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                         const cellKey = `${r}-${c}`;
                         const isGhost = ghostCells.includes(cellKey);
                         const isClearing = clearingCells.includes(cellKey);
-                        // Only highlight whole row/col, not just the cell
                         const isHighlightRow = highlightLines.rows.includes(r);
                         const isHighlightCol = highlightLines.cols.includes(c);
 
@@ -656,7 +666,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                                 style={cell ? { backgroundColor: cell, boxShadow: `0 0 5px rgba(0,0,0,0.2)` } : {}}
                             >
                                 {isGhost && <div className="ghost-overlay" />}
-                                {/* Render clear guide overlay */}
                                 {(isHighlightRow || isHighlightCol) && <div className="potential-clear-overlay" />}
                             </div>
                         );
@@ -698,7 +707,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                         {hand[dragState.shapeIdx]!.matrix.map((row, r) => row.map((val, c) => (
                             <div key={`${r}-${c}`} className="mini-cell" style={{
                                 backgroundColor: val ? getThemeColor(hand[dragState.shapeIdx]!.colorKey) : 'transparent',
-                                // Removed box-shadow here as requested
                                 width: `${dragState.boardCellSize}px`, height: `${dragState.boardCellSize}px`, borderRadius: '4px'
                             }} />
                         )))}
@@ -716,27 +724,43 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
 
 const App: React.FC = () => {
     const [gameMode, setGameMode] = useState<GameMode>(GameMode.MENU);
-    const [theme, setTheme] = useState<ThemeType>('pastel'); // Default to Pastel
+    const [theme, setTheme] = useState<ThemeType>('pastel');
 
     // Apply theme to body
     useEffect(() => {
         document.body.setAttribute('data-theme', theme);
     }, [theme]);
 
-    const toggleTheme = () => {
-        setTheme(prev => {
-            if (prev === 'neon') return 'pastel';
-            if (prev === 'pastel') return 'misty';
-            return 'neon';
-        });
+    const themes: ThemeType[] = ['neon', 'pastel', 'misty', 'muted-blue', 'muted-purple'];
+
+    const getThemePreviewColor = (t: ThemeType) => {
+        switch (t) {
+            case 'neon': return '#10b981';
+            case 'pastel': return '#fbcfe8';
+            case 'misty': return '#8da9c4';
+            case 'muted-blue': return '#5F9EA0';
+            case 'muted-purple': return '#9370DB';
+        }
+        return '#fff';
     };
 
     if (gameMode === GameMode.MENU) {
         return (
             <div className="lobby-container">
-                <button className="theme-toggle-btn glass-panel" onClick={toggleTheme}>
-                    Theme: {theme.toUpperCase()}
-                </button>
+                <div className="theme-selector-container glass-panel">
+                    <span className="theme-label">THEME</span>
+                    <div className="theme-options">
+                        {themes.map(t => (
+                            <button
+                                key={t}
+                                className={`theme-swatch ${theme === t ? 'active' : ''}`}
+                                style={{ backgroundColor: getThemePreviewColor(t) }}
+                                onClick={() => setTheme(t)}
+                                aria-label={`Select ${t} theme`}
+                            />
+                        ))}
+                    </div>
+                </div>
 
                 <div className="lobby-card menu-card">
                     <h1 className="title neon-text">Game Menu</h1>
