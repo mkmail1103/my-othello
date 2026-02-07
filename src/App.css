@@ -44,6 +44,7 @@ body {
     background: linear-gradient(90deg, #10b981, #059669);
     box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
     transition: all 0.2s;
+    color: white; /* Ensure text is white */
 }
 
     .neon-btn:active {
@@ -57,10 +58,10 @@ body {
     align-items: center;
     justify-content: center;
     width: 100vw;
-    height: 100vh;
+    height: 100dvh; /* dynamic viewport height */
     background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
     padding: 1rem;
-    box-sizing: border-box; /* IMPORTANT for mobile padding */
+    box-sizing: border-box;
 }
 
 .lobby-card {
@@ -70,9 +71,9 @@ body {
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     width: 100%;
-    max-width: 400px; /* Limits width on desktop */
+    max-width: 400px;
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
-    box-sizing: border-box; /* Prevents overflow */
+    box-sizing: border-box;
 }
 
 .title {
@@ -195,9 +196,12 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start; /* Changed from center to accommodate mobile height better */
-    height: 100vh;
+    justify-content: flex-start;
+    height: 100dvh; /* Dynamic viewport height */
     padding: 1rem;
+    /* Add safe area padding for notches */
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
     box-sizing: border-box;
     background: radial-gradient(circle at 50% 30%, #1f2937 0%, #000 100%);
     width: 100vw;
@@ -211,9 +215,10 @@ body {
     max-width: 500px;
     padding: 0.8rem 1.2rem;
     margin-bottom: 1rem;
-    margin-top: 0.5rem;
-    height: 70px;
+    margin-top: 0; /* Removed top margin */
+    min-height: 60px;
     box-sizing: border-box;
+    flex-shrink: 0; /* Prevent shrinking */
 }
 
 /* Othello Specifics */
@@ -300,8 +305,8 @@ body {
 .board-wrapper {
     padding: 0.5rem;
     margin-bottom: 1rem;
-    /* Neon glow for board */
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.8), 0 0 40px rgba(16, 185, 129, 0.1);
+    flex-shrink: 0;
 }
 
 .board {
@@ -314,10 +319,10 @@ body {
 }
 
 .cell {
-    width: 11vw;
-    height: 11vw;
-    max-width: 48px;
-    max-height: 48px;
+    width: 10vw; /* Slightly smaller to fit mobile */
+    height: 10vw;
+    max-width: 44px;
+    max-height: 44px;
     background-color: rgba(255, 255, 255, 0.03);
     position: relative;
     display: flex;
@@ -363,7 +368,6 @@ body {
 .coord-x, .coord-y {
     display: none;
 }
-/* Hide coords for cleaner mobile look */
 
 /* ================= BLOCK PUZZLE STYLES ================= */
 .puzzle-mode .board-wrapper {
@@ -428,19 +432,20 @@ body {
     align-items: center;
     margin-top: auto; /* Push to bottom */
     width: 100%;
-    min-height: 140px;
+    min-height: 130px;
     padding: 10px;
     box-sizing: border-box;
     /* Glass background for hand area */
     background: rgba(0,0,0,0.3);
     border-top: 1px solid rgba(255,255,255,0.05);
     border-radius: 20px 20px 0 0;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
 }
 
 .shape-item {
     padding: 10px;
     cursor: grab;
-    touch-action: none; /* Critical for drag */
+    touch-action: none;
     width: 80px;
     height: 80px;
     display: flex;
@@ -462,7 +467,6 @@ body {
     .shape-item.used {
         display: none;
     }
-/* Hide completely used items to center remaining */
 
 .mini-grid {
     display: grid;
@@ -482,7 +486,7 @@ body {
     position: fixed;
     pointer-events: none;
     z-index: 9999;
-    transform: translate(-50%, -50%); /* Center on coords */
+    /* Transformation is handled via inline styles now */
     filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.4));
 }
 
@@ -573,14 +577,22 @@ body {
 .rematch-btn {
     width: 100%;
     padding: 1rem;
-    color: white;
+    background-color: #fff; /* White background for visibility */
+    color: #000; /* Black text */
     font-size: 1.2rem;
     font-weight: bold;
     border: none;
     border-radius: 12px;
     cursor: pointer;
     margin-top: 1rem;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+    transition: transform 0.2s;
 }
+
+    .rematch-btn:active {
+        transform: scale(0.95);
+        background-color: #ddd;
+    }
 
 @keyframes popIn {
     from {
