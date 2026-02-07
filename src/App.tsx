@@ -28,8 +28,10 @@ enum OthelloStatus {
 // ==========================================
 
 // --- CONFIGURATION ---
-const DRAG_SENSITIVITY = 1.3;
-const TOUCH_OFFSET_Y = 80;
+// Set sensitivity back to 1.0 (direct 1:1 movement) for better control
+const DRAG_SENSITIVITY = 1.4;
+// Offset to see the block under finger
+const TOUCH_OFFSET_Y = 100;
 
 type ShapeDef = {
     id: string;
@@ -37,7 +39,7 @@ type ShapeDef = {
     color: string;
 };
 
-// Updated Shapes based on "Block Blast" style (No 1x1 as requested before, but added bigger ones)
+// Updated Shapes based on "Block Blast" style
 const PUZZLE_SHAPES: ShapeDef[] = [
     // Standard Lines
     { id: 'I2', matrix: [[1, 1]], color: '#34d399' },
@@ -328,6 +330,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         startPointerY: number;
         hoverRow: number | null;
         hoverCol: number | null;
+        boardCellSize: number; // Capture board cell size to render preview correctly
     } | null>(null);
 
     // Refs
@@ -372,14 +375,18 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const target = e.currentTarget as HTMLElement;
         target.setPointerCapture(e.pointerId);
 
+        let currentCellSize = 40; // Default fallback
         if (boardRef.current) {
             const rect = boardRef.current.getBoundingClientRect();
+            const calculatedCellSize = rect.width / 8;
+            currentCellSize = calculatedCellSize;
+
             boardMetrics.current = {
                 left: rect.left,
                 top: rect.top,
                 width: rect.width,
                 height: rect.height,
-                cellSize: rect.width / 8
+                cellSize: calculatedCellSize
             };
         }
 
@@ -392,7 +399,8 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             currentX: e.clientX,
             currentY: e.clientY,
             hoverRow: null,
-            hoverCol: null
+            hoverCol: null,
+            boardCellSize: currentCellSize
         });
     };
 
@@ -403,7 +411,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const { shapeIdx, startX, startY, startPointerX, startPointerY } = dragState;
         const shape = hand[shapeIdx];
 
-        // Calculate raw position
+        // Calculate raw position with sensitivity
         const deltaX = (e.clientX - startPointerX) * DRAG_SENSITIVITY;
         const deltaY = (e.clientY - startPointerY) * DRAG_SENSITIVITY;
         const currentX = startX + deltaX;
@@ -413,32 +421,24 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         let bestCol: number | null = null;
 
         // SMART SNAP LOGIC
-        // Instead of just calculating "what cell is under the top-left corner",
-        // we iterate all possible valid placements and find the one whose visual position
-        // is closest to the user's dragged position.
         if (shape && boardMetrics.current) {
             const { left, top, cellSize } = boardMetrics.current;
             const shapeWidthPx = shape.matrix[0].length * cellSize;
             const shapeHeightPx = shape.matrix.length * cellSize;
 
             // Where the user is visually holding the top-left of the shape
+            // (Assumed centered on finger plus offset)
             const visualTopLeftX = currentX - (shapeWidthPx / 2);
             const visualTopLeftY = currentY - (shapeHeightPx / 2) - TOUCH_OFFSET_Y;
 
             let minDistance = Infinity;
-            // Max snap distance (in pixels). If you are further than this, no snap.
-            // 2 cells worth of distance is a generous snap area.
             const SNAP_THRESHOLD = cellSize * 2.0;
 
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
-                    // 1. Is it valid?
                     if (canPlace(grid, shape.matrix, r, c)) {
-                        // 2. Where would this placement be on screen?
                         const targetX = left + (c * cellSize);
                         const targetY = top + (r * cellSize);
-
-                        // 3. Distance check
                         const dist = Math.hypot(targetX - visualTopLeftX, targetY - visualTopLeftY);
 
                         if (dist < minDistance && dist < SNAP_THRESHOLD) {
@@ -470,9 +470,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         target.releasePointerCapture(e.pointerId);
 
         if (shape && hoverRow !== null && hoverCol !== null) {
-            // Re-validate just in case
             if (canPlace(grid, shape.matrix, hoverRow, hoverCol)) {
-                // 1. Construct new grid with placed piece
                 const newGrid = grid.map(row => [...row]);
                 const rows = shape.matrix.length;
                 const cols = shape.matrix[0].length;
@@ -658,6 +656,8 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     className="mini-grid"
                                     style={{
                                         gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)`,
+                                        // When in hand, use small fixed size cells (20px)
+                                        // The visual sizing is handled by container, but grid tracks internal
                                         width: `${shape.matrix[0].length * 20}px`
                                     }}
                                 >
@@ -691,7 +691,10 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         className="mini-grid"
                         style={{
                             gridTemplateColumns: `repeat(${hand[dragState.shapeIdx]!.matrix[0].length}, 1fr)`,
-                            transform: 'scale(1.5)',
+                            // CRITICAL FIX: Make the drag preview 1:1 with board size
+                            // Using the captured boardCellSize from handlePointerDown
+                            width: `${hand[dragState.shapeIdx]!.matrix[0].length * dragState.boardCellSize}px`,
+                            gap: '1px' // Match puzzle board gap
                         }}
                     >
                         {hand[dragState.shapeIdx]!.matrix.map((row, r) => row.map((val, c) => (
@@ -701,7 +704,10 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 style={{
                                     backgroundColor: val ? hand[dragState.shapeIdx]!.color : 'transparent',
                                     boxShadow: val ? `0 0 10px ${hand[dragState.shapeIdx]!.color}` : 'none',
-                                    width: '20px', height: '20px'
+                                    // Use dynamic size matching the board
+                                    width: `${dragState.boardCellSize}px`,
+                                    height: `${dragState.boardCellSize}px`,
+                                    borderRadius: '4px'
                                 }}
                             />
                         )))}

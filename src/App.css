@@ -363,6 +363,11 @@ body {
     margin-bottom: 1rem;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.8), 0 0 40px rgba(16, 185, 129, 0.1);
     flex-shrink: 0;
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    justify-content: center;
+    box-sizing: border-box;
 }
 
 .board {
@@ -372,13 +377,15 @@ body {
     background-color: rgba(0,0,0,0.5);
     border-radius: 4px;
     touch-action: none;
+    width: 100%; /* Fill container */
 }
 
 .cell {
-    width: 10vw;
-    height: 10vw;
-    max-width: 44px;
-    max-height: 44px;
+    /* Make cells bigger for better touch targets */
+    width: 100%;
+    aspect-ratio: 1;
+    max-width: 52px; /* Increased from 44px */
+    max-height: 52px;
     background-color: rgba(255, 255, 255, 0.03);
     position: relative;
     display: flex;
@@ -439,7 +446,7 @@ body {
 
 .puzzle-cell {
     background-color: #1a1a1a;
-    transition: background-color 0.1s, transform 0.2s;
+    transition: background-color 0.1s; /* Removed transform to avoid jitter */
     border-radius: 4px;
 }
 
@@ -570,10 +577,9 @@ body {
     justify-content: center;
     transition: transform 0.1s;
 }
-
+    /* Removed scaling down on active to keep it consistent */
     .shape-item:active {
         cursor: grabbing;
-        transform: scale(0.9);
     }
 
     .shape-item.invisible {
