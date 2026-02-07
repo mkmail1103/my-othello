@@ -129,13 +129,18 @@ body {
 /* ================= LOBBY & MENU ================= */
 .lobby-container {
     display: flex;
+    flex-direction: column; /* Stack vertically */
     align-items: center;
-    justify-content: center;
+    /* justify-content: center; REMOVED center to avoid top cutoff */
+    justify-content: flex-start; /* Start from top */
     width: 100vw;
     height: 100dvh;
     padding: 1rem;
     box-sizing: border-box;
     position: relative;
+    /* Add top padding to account for safe area and spacing */
+    padding-top: max(5rem, env(safe-area-inset-top));
+    overflow-y: auto; /* Allow scrolling if content is too tall */
 }
 
 [data-theme="neon"] .lobby-container {
@@ -143,15 +148,19 @@ body {
 }
 
 .theme-selector-container {
+    /* Use fixed or sticky position if we want it to stay on top, 
+       but inside lobby flow might be better for layout stability. 
+       Let's keep absolute but ensure spacing. */
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: max(1rem, env(safe-area-inset-top));
+    right: 1rem;
     padding: 8px 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
     border-radius: 20px;
+    z-index: 50;
 }
 
 .theme-label {
@@ -167,10 +176,10 @@ body {
 }
 
 .theme-swatch {
-    width: 24px;
-    height: 24px;
+    width: 28px; /* Slightly bigger touch target */
+    height: 28px;
     border-radius: 50%;
-    border: 2px solid transparent;
+    border: 2px solid rgba(255,255,255,0.2);
     cursor: pointer;
     transition: transform 0.2s, border-color 0.2s;
     padding: 0;
@@ -195,6 +204,8 @@ body {
     width: 100%;
     max-width: 400px;
     box-sizing: border-box;
+    /* Ensure it pushes down if needed, though padding-top handles most */
+    margin-top: 1rem;
 }
 
 .title {
@@ -413,6 +424,33 @@ body {
     box-sizing: border-box;
 }
 
+/* Clearing Animation */
+@keyframes flashClear {
+    0% {
+        background-color: #fff;
+        transform: scale(1);
+        filter: brightness(2);
+    }
+
+    30% {
+        background-color: var(--accent-color);
+        transform: scale(1.05);
+    }
+
+    100% {
+        background-color: var(--cell-bg);
+        transform: scale(1);
+        filter: brightness(1);
+    }
+}
+
+.puzzle-cell.clearing {
+    animation: flashClear 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    z-index: 20;
+    /* Ensure no borders during clear to make it look smooth */
+    border-color: transparent;
+}
+
 
 /* Potential Clear Overlay - WHITEWASH */
 .potential-clear-overlay {
@@ -474,18 +512,20 @@ body {
         cursor: grabbing;
     }
 
+/* MINI GRID: Fixed Transparency/Gap Issue */
 .mini-grid {
     display: grid;
     gap: 0;
     pointer-events: none;
+    /* Ensure it's tight */
 }
 
 .mini-cell {
-    width: 18px;
-    height: 18px;
+    width: 20px; /* Match the calculation in App.tsx (20px) */
+    height: 20px;
     border-radius: 0; /* Square mini blocks */
     box-sizing: border-box;
-    border: 1px solid rgba(0,0,0,0.1); /* Slight separation for mini blocks */
+    border: none; /* REMOVED BORDER to remove transparency gap/lines */
 }
 
 
@@ -517,13 +557,14 @@ body {
     cursor: pointer;
 }
 
-/* Floating Text */
+/* Floating Text - Score Popup */
 .floating-text {
     position: fixed;
     color: var(--accent-color);
-    font-size: 2rem;
+    font-family: 'Arial Black', sans-serif;
+    font-size: 2.5rem; /* Larger */
     font-weight: 900;
-    text-shadow: 1px 1px 0 #fff;
+    text-shadow: 2px 2px 0 #fff, 0 0 10px rgba(0,0,0,0.3); /* Pop out */
     pointer-events: none;
     z-index: 10000;
     animation: floatUp 1s ease-out forwards;
@@ -555,9 +596,14 @@ body {
         transform: translateY(0) scale(0.5);
     }
 
+    20% {
+        opacity: 1;
+        transform: translateY(-30px) scale(1.2);
+    }
+
     100% {
         opacity: 0;
-        transform: translateY(-80px) scale(1);
+        transform: translateY(-100px) scale(1);
     }
 }
 
