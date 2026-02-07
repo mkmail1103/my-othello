@@ -29,7 +29,7 @@ enum OthelloStatus {
 
 // --- CONFIGURATION ---
 // Sensitivity 1.0 = direct 1:1 tracking with finger
-const DRAG_SENSITIVITY = 1.0;
+const DRAG_SENSITIVITY = 1.5;
 // Offset Y to lift the block above the finger so it's visible
 const TOUCH_OFFSET_Y = 100;
 
