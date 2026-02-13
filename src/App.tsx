@@ -349,6 +349,10 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
     const [comboText, setComboText] = useState<{ main: string, sub: string } | null>(null);
     const [isShaking, setIsShaking] = useState(false);
 
+    // Audio State
+    const [isMuted, setIsMuted] = useState(false);
+    const bgmRef = useRef<HTMLAudioElement | null>(null);
+
     const [highlightLines, setHighlightLines] = useState<{ rows: number[], cols: number[] }>({ rows: [], cols: [] });
     const [floatingTexts, setFloatingTexts] = useState<{ id: number, x: number, y: number, text: string }[]>([]);
     const floatingTextId = useRef(0);
@@ -362,6 +366,44 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
     const boardMetrics = useRef<{ left: number, top: number, width: number, height: number, cellSize: number } | null>(null);
 
     const getThemeColor = (key: ColorKey) => THEME_PALETTES[theme][key];
+
+    // --- Audio Helper ---
+    const playSound = (type: 'pickup' | 'place' | 'clear' | 'gameover') => {
+        if (isMuted) return;
+        const soundPath = `/sounds/${type}.mp3`;
+        const audio = new Audio(soundPath);
+        audio.volume = 0.5;
+        audio.play().catch(e => console.log("Sound play failed:", e));
+    };
+
+    // --- BGM Effect ---
+    useEffect(() => {
+        const bgm = new Audio('/sounds/bgm.mp3');
+        bgm.loop = true;
+        bgm.volume = 0.3;
+        bgmRef.current = bgm;
+
+        if (!isMuted) {
+            bgm.play().catch(e => console.log("BGM play failed (needs interaction):", e));
+        }
+
+        return () => {
+            bgm.pause();
+            bgmRef.current = null;
+        };
+    }, []);
+
+    // Toggle Mute
+    const toggleMute = () => {
+        setIsMuted(prev => {
+            const next = !prev;
+            if (bgmRef.current) {
+                if (next) bgmRef.current.pause();
+                else bgmRef.current.play().catch(e => console.log("BGM resume failed:", e));
+            }
+            return next;
+        });
+    };
 
     useEffect(() => {
         if (hand.length > 0 && hand.every(h => h === null) && clearingCells.length === 0) {
@@ -392,6 +434,11 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
         return !canMove;
     }, [hand, grid, clearingCells.length]);
 
+    // Game Over Sound
+    useEffect(() => {
+        if (isGameOver) playSound('gameover');
+    }, [isGameOver]);
+
     const addFloatingText = (x: number, y: number, text: string) => {
         const id = floatingTextId.current++;
         setFloatingTexts(prev => [...prev, { id, x, y, text }]);
@@ -402,6 +449,9 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
 
     const handlePointerDown = (e: React.PointerEvent, idx: number) => {
         if (isGameOver || hand[idx] === null) return;
+
+        playSound('pickup');
+
         const target = e.currentTarget as HTMLElement;
         target.setPointerCapture(e.pointerId);
 
@@ -488,6 +538,9 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
 
         if (shape && hoverRow !== null && hoverCol !== null) {
             if (canPlace(grid, shape.matrix, hoverRow, hoverCol)) {
+
+                playSound('place');
+
                 const color = getThemeColor(shape.colorKey);
                 let placementScore = 0;
                 shape.matrix.forEach(row => row.forEach(val => { if (val === 1) placementScore++; }));
@@ -567,6 +620,9 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
         const totalLines = rowsToClear.length + colsToClear.length;
 
         if (totalLines > 0) {
+
+            playSound('clear');
+
             setMovesSinceClear(0);
             const newCombo = combo + 1;
             setCombo(newCombo);
@@ -647,6 +703,9 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                 </div>
 
                 <div className="right-align">
+                    <button onClick={toggleMute} className="sound-btn" aria-label="Toggle Sound">
+                        {isMuted ? '🔇' : '🔊'}
+                    </button>
                     <button onClick={onBack} className="leave-btn">Exit</button>
                 </div>
             </div>

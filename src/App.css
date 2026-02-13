@@ -343,6 +343,7 @@ body {
 .right-align {
     display: flex;
     justify-content: flex-end;
+    gap: 8px; /* For buttons */
 }
 
 .combo-center-area {
@@ -486,13 +487,15 @@ body {
     align-items: center;
     margin-top: auto;
     width: 100%;
-    min-height: 140px;
+    /* INCREASED HEIGHT AND PADDING TO FIX CUT-OFF ON MOBILE */
+    min-height: 160px;
     padding: 10px;
     box-sizing: border-box;
     background: var(--panel-bg);
     border-top: 1px solid var(--border-color);
     border-radius: 24px 24px 0 0;
-    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    /* Extra padding for safe area (iPhone home indicator) + extra breathing room */
+    padding-bottom: max(40px, env(safe-area-inset-bottom));
 }
 
 .shape-item {
@@ -547,11 +550,27 @@ body {
     background: rgba(255, 255, 255, 0.1);
     color: var(--text-color);
     border: 1px solid var(--border-color);
-    padding: 0.4rem 1.2rem;
+    padding: 0.4rem 1.0rem;
     border-radius: 12px;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     cursor: pointer;
+    white-space: nowrap;
 }
+
+/* Sound Button */
+.sound-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    padding: 0 4px;
+}
+
+    .sound-btn:active {
+        transform: scale(0.9);
+    }
 
 /* Floating Text - Score Popup */
 .floating-text {
