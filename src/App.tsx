@@ -370,6 +370,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
     // --- Audio Helper ---
     const playSound = (type: 'pickup' | 'place' | 'clear' | 'gameover') => {
         if (isMuted) return;
+        // The path is relative to the PUBLIC folder. 
         const soundPath = `/sounds/${type}.mp3`;
         const audio = new Audio(soundPath);
         audio.volume = 0.5;
@@ -378,12 +379,14 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
 
     // --- BGM Effect ---
     useEffect(() => {
+        // The path is relative to the PUBLIC folder.
         const bgm = new Audio('/sounds/bgm.mp3');
         bgm.loop = true;
         bgm.volume = 0.3;
         bgmRef.current = bgm;
 
         if (!isMuted) {
+            // Note: Browsers block autoplay until interaction.
             bgm.play().catch(e => console.log("BGM play failed (needs interaction):", e));
         }
 
