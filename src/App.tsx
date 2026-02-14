@@ -352,6 +352,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
     // Audio State
     const [isMuted, setIsMuted] = useState(false);
     const bgmRef = useRef<HTMLAudioElement | null>(null);
+    const soundsRef = useRef<{ [key: string]: HTMLAudioElement }>({});
 
     const [highlightLines, setHighlightLines] = useState<{ rows: number[], cols: number[] }>({ rows: [], cols: [] });
     const [floatingTexts, setFloatingTexts] = useState<{ id: number, x: number, y: number, text: string }[]>([]);
@@ -368,14 +369,24 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
     const getThemeColor = (key: ColorKey) => THEME_PALETTES[theme][key];
 
     // --- Audio Helper ---
-    const playSound = (type: 'pickup' | 'place' | 'clear' | 'gameover') => {
+    // Preload sounds
+    useEffect(() => {
+        const soundTypes = ['pickup', 'place', 'clear', 'gameover'];
+        soundTypes.forEach(type => {
+            const audio = new Audio(`/sounds/${type}.mp3`);
+            audio.volume = 0.5;
+            soundsRef.current[type] = audio;
+        });
+    }, []);
+
+    const playSound = useCallback((type: 'pickup' | 'place' | 'clear' | 'gameover') => {
         if (isMuted) return;
-        // The path is relative to the PUBLIC folder. 
-        const soundPath = `/sounds/${type}.mp3`;
-        const audio = new Audio(soundPath);
-        audio.volume = 0.5;
-        audio.play().catch(e => console.log("Sound play failed:", e));
-    };
+        const audio = soundsRef.current[type];
+        if (audio) {
+            audio.currentTime = 0; // Rewind for rapid play
+            audio.play().catch(e => console.log("Sound play failed:", e));
+        }
+    }, [isMuted]);
 
     // --- BGM Effect ---
     useEffect(() => {
@@ -440,7 +451,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
     // Game Over Sound
     useEffect(() => {
         if (isGameOver) playSound('gameover');
-    }, [isGameOver]);
+    }, [isGameOver, playSound]);
 
     const addFloatingText = (x: number, y: number, text: string) => {
         const id = floatingTextId.current++;

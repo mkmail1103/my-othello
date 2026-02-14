@@ -489,14 +489,15 @@ body {
     width: 100%;
     /* INCREASED HEIGHT AND PADDING TO FIX CUT-OFF ON MOBILE */
     /* safe-area-inset-bottom gets the safe area on iPhone (home bar) */
-    min-height: 180px;
+    min-height: 220px; /* Increased from 180px */
     padding: 10px;
     box-sizing: border-box;
     background: var(--panel-bg);
     border-top: 1px solid var(--border-color);
     border-radius: 24px 24px 0 0;
     /* Crucial padding increase for mobile browsers */
-    padding-bottom: max(50px, env(safe-area-inset-bottom));
+    /* Increased from 50px to 80px to provide more bottom space */
+    padding-bottom: max(80px, env(safe-area-inset-bottom));
 }
 
 .shape-item {
