@@ -351,8 +351,11 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
 
     // Audio State
     const [isMuted, setIsMuted] = useState(false);
-    const bgmRef = useRef<HTMLAudioElement | null>(null);
-    const soundsRef = useRef<{ [key: string]: HTMLAudioElement }>({});
+
+    // --- WEB AUDIO API REFS ---
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const audioBuffersRef = useRef<{ [key: string]: AudioBuffer }>({});
+    const bgmSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
     const [highlightLines, setHighlightLines] = useState<{ rows: number[], cols: number[] }>({ rows: [], cols: [] });
     const [floatingTexts, setFloatingTexts] = useState<{ id: number, x: number, y: number, text: string }[]>([]);
@@ -368,55 +371,109 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
 
     const getThemeColor = (key: ColorKey) => THEME_PALETTES[theme][key];
 
-    // --- Audio Helper ---
-    // Preload sounds
+    // --- Audio Initialization ---
     useEffect(() => {
-        const soundTypes = ['pickup', 'place', 'clear', 'gameover'];
-        soundTypes.forEach(type => {
-            const audio = new Audio(`/sounds/${type}.mp3`);
-            audio.volume = 0.5;
-            soundsRef.current[type] = audio;
-        });
-    }, []);
-
-    const playSound = useCallback((type: 'pickup' | 'place' | 'clear' | 'gameover') => {
-        if (isMuted) return;
-        const audio = soundsRef.current[type];
-        if (audio) {
-            audio.currentTime = 0; // Rewind for rapid play
-            audio.play().catch(e => console.log("Sound play failed:", e));
+        // Initialize AudioContext
+        const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
+        if (AudioContextClass) {
+            audioContextRef.current = new AudioContextClass();
         }
-    }, [isMuted]);
 
-    // --- BGM Effect ---
-    useEffect(() => {
-        // The path is relative to the PUBLIC folder.
-        const bgm = new Audio('/sounds/bgm.mp3');
-        bgm.loop = true;
-        bgm.volume = 0.3;
-        bgmRef.current = bgm;
+        const loadSound = async (name: string) => {
+            if (!audioContextRef.current) return;
+            try {
+                const response = await fetch(`/sounds/${name}.mp3`);
+                const arrayBuffer = await response.arrayBuffer();
+                const decodedBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+                audioBuffersRef.current[name] = decodedBuffer;
+            } catch (error) {
+                console.error(`Failed to load sound: ${name}`, error);
+            }
+        };
 
-        if (!isMuted) {
-            // Note: Browsers block autoplay until interaction.
-            bgm.play().catch(e => console.log("BGM play failed (needs interaction):", e));
-        }
+        // Load all sounds
+        ['pickup', 'place', 'clear', 'gameover', 'bgm'].forEach(name => loadSound(name));
 
         return () => {
-            bgm.pause();
-            bgmRef.current = null;
+            if (audioContextRef.current) {
+                audioContextRef.current.close();
+            }
         };
     }, []);
 
+    // --- Play Sound Helper (Web Audio API) ---
+    const playSound = useCallback((type: 'pickup' | 'place' | 'clear' | 'gameover') => {
+        if (isMuted || !audioContextRef.current || !audioBuffersRef.current[type]) return;
+
+        const ctx = audioContextRef.current;
+        // Check if context is suspended (iOS policy) and try to resume if possible
+        if (ctx.state === 'suspended') {
+            ctx.resume();
+        }
+
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffersRef.current[type];
+
+        // Gain node for volume control if needed, simple here
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = 0.5; // 50% volume
+
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        source.start(0);
+    }, [isMuted]);
+
+    // --- BGM Management ---
+    useEffect(() => {
+        const startBGM = () => {
+            if (isMuted || !audioContextRef.current || !audioBuffersRef.current['bgm']) return;
+
+            // If already playing, don't start another
+            if (bgmSourceRef.current) return;
+
+            const ctx = audioContextRef.current;
+            const source = ctx.createBufferSource();
+            source.buffer = audioBuffersRef.current['bgm'];
+            source.loop = true;
+
+            const gainNode = ctx.createGain();
+            gainNode.gain.value = 0.3; // 30% volume
+
+            source.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            source.start(0);
+            bgmSourceRef.current = source;
+        };
+
+        const stopBGM = () => {
+            if (bgmSourceRef.current) {
+                try {
+                    bgmSourceRef.current.stop();
+                } catch (e) { /* ignore */ }
+                bgmSourceRef.current = null;
+            }
+        };
+
+        if (isMuted) {
+            stopBGM();
+        } else {
+            // Need to wait for buffer to load. Simple polling for demo.
+            const checkBuffer = setInterval(() => {
+                if (audioBuffersRef.current['bgm']) {
+                    startBGM();
+                    clearInterval(checkBuffer);
+                }
+            }, 500);
+            return () => {
+                clearInterval(checkBuffer);
+                stopBGM();
+            };
+        }
+    }, [isMuted]);
+
     // Toggle Mute
     const toggleMute = () => {
-        setIsMuted(prev => {
-            const next = !prev;
-            if (bgmRef.current) {
-                if (next) bgmRef.current.pause();
-                else bgmRef.current.play().catch(e => console.log("BGM resume failed:", e));
-            }
-            return next;
-        });
+        setIsMuted(prev => !prev);
     };
 
     useEffect(() => {
@@ -462,6 +519,11 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
     };
 
     const handlePointerDown = (e: React.PointerEvent, idx: number) => {
+        // Unlock AudioContext on iOS/Android first interaction
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume();
+        }
+
         if (isGameOver || hand[idx] === null) return;
 
         playSound('pickup');
