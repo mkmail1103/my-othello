@@ -409,6 +409,17 @@ body {
     width: 100%;
 }
 
+/* Misty Theme: Add gaps between blocks (requested) */
+[data-theme="misty"] .board {
+    gap: 2px;
+    padding: 2px;
+}
+/* For Misty, use gap for separation instead of border */
+[data-theme="misty"] .cell {
+    border: none;
+}
+
+
 .cell {
     width: 100%;
     aspect-ratio: 1;
