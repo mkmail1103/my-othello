@@ -62,11 +62,11 @@ enum OthelloStatus {
 const DRAG_SENSITIVITY = 1.5;
 const TOUCH_OFFSET_Y = 100;
 
-// Updated Score Table: 1 line = 30, Simultaneous clears are heavily rewarded
+// Updated Score Table
 const BASE_SCORES: { [key: number]: number } = {
     1: 30,
-    2: 80,   // Bonus for 2 at once
-    3: 200,  // Big bonus
+    2: 80,
+    3: 200,
     4: 500,
     5: 1000,
     6: 2000,
@@ -81,44 +81,102 @@ type ShapeDef = {
     matrix: number[][];
     colorKey: ColorKey;
     difficulty: number;
+    category: 'easy' | 'medium' | 'hard' | 'complex';
 };
 
 const PUZZLE_SHAPES: ShapeDef[] = [
-    { id: 'I1', matrix: [[1]], colorKey: 'rose', difficulty: 1 },
-    { id: 'I2', matrix: [[1, 1]], colorKey: 'green', difficulty: 1 },
-    { id: 'I2_V', matrix: [[1], [1]], colorKey: 'green', difficulty: 1 },
-    { id: 'I3', matrix: [[1, 1, 1]], colorKey: 'blue', difficulty: 2 },
-    { id: 'I3_V', matrix: [[1], [1], [1]], colorKey: 'blue', difficulty: 2 },
-    { id: 'I4', matrix: [[1, 1, 1, 1]], colorKey: 'indigo', difficulty: 2 },
-    { id: 'I4_V', matrix: [[1], [1], [1], [1]], colorKey: 'indigo', difficulty: 2 },
-    { id: 'I5', matrix: [[1, 1, 1, 1, 1]], colorKey: 'yellow', difficulty: 3 },
-    { id: 'I5_V', matrix: [[1], [1], [1], [1], [1]], colorKey: 'yellow', difficulty: 3 },
-    { id: 'SQR2', matrix: [[1, 1], [1, 1]], colorKey: 'red', difficulty: 2 },
-    { id: 'SQR3', matrix: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], colorKey: 'purple', difficulty: 3 },
-    { id: 'RECT2x3', matrix: [[1, 1, 1], [1, 1, 1]], colorKey: 'lime', difficulty: 3 },
-    { id: 'RECT3x2', matrix: [[1, 1], [1, 1], [1, 1]], colorKey: 'lime', difficulty: 3 },
-    { id: 'L3', matrix: [[1, 0], [1, 1]], colorKey: 'purple', difficulty: 1 },
-    { id: 'L3_R', matrix: [[0, 1], [1, 1]], colorKey: 'purple', difficulty: 1 },
-    { id: 'L3_V', matrix: [[1, 1], [1, 0]], colorKey: 'purple', difficulty: 1 },
-    { id: 'L3_VR', matrix: [[1, 1], [0, 1]], colorKey: 'purple', difficulty: 1 },
-    { id: 'L5', matrix: [[1, 0, 0], [1, 0, 0], [1, 1, 1]], colorKey: 'orange', difficulty: 3 },
-    { id: 'L5_R', matrix: [[0, 0, 1], [0, 0, 1], [1, 1, 1]], colorKey: 'orange', difficulty: 3 },
-    { id: 'T3', matrix: [[1, 1, 1], [0, 1, 0]], colorKey: 'pink', difficulty: 2 },
-    { id: 'T3_D', matrix: [[0, 1, 0], [1, 1, 1]], colorKey: 'pink', difficulty: 2 },
-    { id: 'Z3', matrix: [[1, 1, 0], [0, 1, 1]], colorKey: 'teal', difficulty: 2 },
-    { id: 'S3', matrix: [[0, 1, 1], [1, 1, 0]], colorKey: 'teal', difficulty: 2 },
+    // --- EASY (Square friendly / Line fillers) ---
+    { id: 'I2', matrix: [[1, 1]], colorKey: 'green', difficulty: 1, category: 'easy' },
+    { id: 'I2_V', matrix: [[1], [1]], colorKey: 'green', difficulty: 1, category: 'easy' },
+    { id: 'I3', matrix: [[1, 1, 1]], colorKey: 'blue', difficulty: 2, category: 'easy' },
+    { id: 'I3_V', matrix: [[1], [1], [1]], colorKey: 'blue', difficulty: 2, category: 'easy' },
+    { id: 'I4', matrix: [[1, 1, 1, 1]], colorKey: 'indigo', difficulty: 2, category: 'easy' },
+    { id: 'I4_V', matrix: [[1], [1], [1], [1]], colorKey: 'indigo', difficulty: 2, category: 'easy' },
+    { id: 'SQR2', matrix: [[1, 1], [1, 1]], colorKey: 'red', difficulty: 2, category: 'easy' },
+    { id: 'SQR3', matrix: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], colorKey: 'purple', difficulty: 3, category: 'easy' },
+    { id: 'RECT2x3', matrix: [[1, 1, 1], [1, 1, 1]], colorKey: 'lime', difficulty: 3, category: 'easy' },
+    { id: 'RECT3x2', matrix: [[1, 1], [1, 1], [1, 1]], colorKey: 'lime', difficulty: 3, category: 'easy' },
+
+    // --- MEDIUM (Standard Tetris-ish) ---
+    // L-Shapes (4 orientations)
+    { id: 'L3', matrix: [[1, 0], [1, 1]], colorKey: 'purple', difficulty: 1, category: 'medium' },
+    { id: 'L3_R', matrix: [[0, 1], [1, 1]], colorKey: 'purple', difficulty: 1, category: 'medium' },
+    { id: 'L3_V', matrix: [[1, 1], [1, 0]], colorKey: 'purple', difficulty: 1, category: 'medium' },
+    { id: 'L3_VR', matrix: [[1, 1], [0, 1]], colorKey: 'purple', difficulty: 1, category: 'medium' },
+
+    // T-Shapes (4 orientations)
+    { id: 'T3_D', matrix: [[1, 1, 1], [0, 1, 0]], colorKey: 'pink', difficulty: 2, category: 'medium' }, // Down
+    { id: 'T3_U', matrix: [[0, 1, 0], [1, 1, 1]], colorKey: 'pink', difficulty: 2, category: 'medium' }, // Up
+    { id: 'T3_L', matrix: [[0, 1], [1, 1], [0, 1]], colorKey: 'pink', difficulty: 2, category: 'medium' }, // Left
+    { id: 'T3_R', matrix: [[1, 0], [1, 1], [1, 0]], colorKey: 'pink', difficulty: 2, category: 'medium' }, // Right
+
+    // Z-Shapes (2 orientations)
+    { id: 'Z3_H', matrix: [[1, 1, 0], [0, 1, 1]], colorKey: 'teal', difficulty: 2, category: 'medium' },
+    { id: 'Z3_V', matrix: [[0, 1], [1, 1], [1, 0]], colorKey: 'teal', difficulty: 2, category: 'medium' },
+
+    // S-Shapes (2 orientations)
+    { id: 'S3_H', matrix: [[0, 1, 1], [1, 1, 0]], colorKey: 'teal', difficulty: 2, category: 'medium' },
+    { id: 'S3_V', matrix: [[1, 0], [1, 1], [0, 1]], colorKey: 'teal', difficulty: 2, category: 'medium' },
+
+    // --- HARD / COMPLEX (5-cell shapes) ---
+
+    // I5 (Line)
+    { id: 'I5', matrix: [[1, 1, 1, 1, 1]], colorKey: 'yellow', difficulty: 3, category: 'hard' },
+    { id: 'I5_V', matrix: [[1], [1], [1], [1], [1]], colorKey: 'yellow', difficulty: 3, category: 'hard' },
+
+    // L5 (5-cell L shape)
+    { id: 'L5_0', matrix: [[1, 0, 0], [1, 0, 0], [1, 1, 1]], colorKey: 'orange', difficulty: 4, category: 'complex' },
+    { id: 'L5_90', matrix: [[1, 1, 1], [1, 0, 0], [1, 0, 0]], colorKey: 'orange', difficulty: 4, category: 'complex' },
+    { id: 'L5_180', matrix: [[1, 1, 1], [0, 0, 1], [0, 0, 1]], colorKey: 'orange', difficulty: 4, category: 'complex' },
+    { id: 'L5_270', matrix: [[0, 0, 1], [0, 0, 1], [1, 1, 1]], colorKey: 'orange', difficulty: 4, category: 'complex' },
+
+    // T5 Removed as requested
+
+    // V5 (Corner/Kagi-gata 5-cell)
+    { id: 'V5_0', matrix: [[1, 1, 1], [1, 0, 0], [1, 0, 0]], colorKey: 'pink', difficulty: 4, category: 'complex' },
+    { id: 'V5_90', matrix: [[1, 1, 1], [0, 0, 1], [0, 0, 1]], colorKey: 'pink', difficulty: 4, category: 'complex' },
+    { id: 'V5_180', matrix: [[0, 0, 1], [0, 0, 1], [1, 1, 1]], colorKey: 'pink', difficulty: 4, category: 'complex' },
+    { id: 'V5_270', matrix: [[1, 0, 0], [1, 0, 0], [1, 1, 1]], colorKey: 'pink', difficulty: 4, category: 'complex' },
 ];
 
 const getSmartShapes = (grid: (string | null)[][], count: number) => {
     let filledCount = 0;
     grid.forEach(r => r.forEach(c => { if (c) filledCount++; }));
     const density = filledCount / 64;
+    const isCleanSlate = density === 0 || density < 0.1; // Empty or near empty
 
     const shapes = [];
     for (let i = 0; i < count; i++) {
         let pool = PUZZLE_SHAPES;
-        if (density > 0.4 && i < 2) pool = PUZZLE_SHAPES.filter(s => s.difficulty <= 2);
-        if (density > 0.7 && i === 0) pool = PUZZLE_SHAPES.filter(s => s.difficulty === 1);
+
+        // --- GOD MODE / EARLY GAME LOGIC ---
+        if (isCleanSlate) {
+            // If board is empty (or just cleared), give VERY easy shapes to encourage continuous clearing.
+            // 80% chance of Easy (Squares/Rects), 20% Medium. No Complex.
+            const roll = Math.random();
+            if (roll < 0.8) {
+                pool = PUZZLE_SHAPES.filter(s => s.category === 'easy');
+            } else {
+                pool = PUZZLE_SHAPES.filter(s => s.category === 'medium');
+            }
+        }
+        // --- NORMAL PLAY LOGIC ---
+        else if (density > 0.6) {
+            // If board is getting full, avoid complex 5-cell shapes to prevent instant death
+            // Favor smaller pieces
+            pool = PUZZLE_SHAPES.filter(s => s.difficulty <= 2);
+        } else {
+            // Mid-game: Balanced mix, but slightly favor easy/medium
+            // 40% Easy, 40% Medium, 20% Hard/Complex
+            const roll = Math.random();
+            if (roll < 0.4) pool = PUZZLE_SHAPES.filter(s => s.category === 'easy');
+            else if (roll < 0.8) pool = PUZZLE_SHAPES.filter(s => s.category === 'medium');
+            else pool = PUZZLE_SHAPES.filter(s => s.category === 'hard' || s.category === 'complex');
+        }
+
+        // Fallback if pool is empty (shouldn't happen)
+        if (pool.length === 0) pool = PUZZLE_SHAPES;
+
         const rand = pool[Math.floor(Math.random() * pool.length)];
         shapes.push(rand);
     }
