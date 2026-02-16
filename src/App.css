@@ -17,18 +17,18 @@
     --cell-border: 1px solid rgba(255,255,255,0.05);
 }
 
-/* THEME: PASTEL (Cute) */
+/* THEME: PASTEL (Updated for better visibility and less eye strain) */
 [data-theme="pastel"] {
-    --bg-color: #fff0f5; /* Lavender/Pinkish White */
-    --board-bg: #fdf2f8;
-    --panel-bg: rgba(255, 255, 255, 0.6);
-    --text-color: #831843; /* Dark Pink */
-    --accent-color: #f472b6;
-    --cell-bg: #ffe4e6;
-    --border-color: rgba(255, 255, 255, 0.5);
-    --shadow-color: rgba(244, 114, 182, 0.2);
+    --bg-color: #f2e8eb; /* 落ち着いたピンクベージュ */
+    --board-bg: #e6d6da; /* ボード背景を少し濃く */
+    --panel-bg: rgba(255, 255, 255, 0.85); /* 文字が見やすいよう透過を抑える */
+    --text-color: #883a52; /* 濃いローズブラウン */
+    --accent-color: #d65a82; /* PaleVioletRed */
+    --cell-bg: #d4c4c8; /* 空セルを暗くしてブロックを目立たせる */
+    --border-color: rgba(136, 58, 82, 0.3);
+    --shadow-color: rgba(136, 58, 82, 0.1);
     --font-primary: 'Quicksand', 'Varela Round', sans-serif;
-    --score-color: #db2777;
+    --score-color: #9f1239;
     --guide-overlay: rgba(255, 255, 255, 0.6);
     --header-text-shadow: none;
     --cell-border: 1px solid rgba(255,255,255,0.4);

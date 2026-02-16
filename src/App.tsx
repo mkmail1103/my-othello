@@ -375,6 +375,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
     // --- Audio Initialization ---
     useEffect(() => {
         // Initialize AudioContext
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
         if (AudioContextClass) {
             audioContextRef.current = new AudioContextClass();
@@ -450,7 +451,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
             if (bgmSourceRef.current) {
                 try {
                     bgmSourceRef.current.stop();
-                } catch (e) { /* ignore */ }
+                } catch { /* ignore */ }
                 bgmSourceRef.current = null;
             }
         };
@@ -800,7 +801,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                             <div
                                 key={cellKey}
                                 className={`cell puzzle-cell ${isGhost ? 'ghost-active' : ''} ${isClearing ? 'clearing' : ''}`}
-                                style={cell ? { backgroundColor: cell, boxShadow: `0 0 5px rgba(0,0,0,0.2)` } : {}}
+                                style={cell ? { backgroundColor: cell } : {}}
                             >
                                 {isGhost && <div className="ghost-overlay" />}
                                 {(isHighlightRow || isHighlightCol) && <div className="potential-clear-overlay" />}
@@ -828,8 +829,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                                     {shape.matrix.map((row, r) => row.map((val, c) => (
                                         <div key={`${r}-${c}`} className="mini-cell" style={{
                                             backgroundColor: val ? color : 'transparent',
-                                            border: val ? 'var(--cell-border)' : 'none',
-                                            boxShadow: val ? '0 0 5px rgba(0,0,0,0.2)' : 'none'
+                                            border: val ? 'var(--cell-border)' : 'none'
                                         }} />
                                     )))}
                                 </div>
@@ -849,8 +849,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                             <div key={`${r}-${c}`} className="mini-cell" style={{
                                 backgroundColor: val ? getThemeColor(hand[dragState.shapeIdx]!.colorKey) : 'transparent',
                                 width: `${dragState.boardCellSize}px`, height: `${dragState.boardCellSize}px`,
-                                border: val ? 'var(--cell-border)' : 'none',
-                                boxShadow: val ? '0 0 5px rgba(0,0,0,0.2)' : 'none'
+                                border: val ? 'var(--cell-border)' : 'none'
                             }} />
                         )))}
                     </div>
