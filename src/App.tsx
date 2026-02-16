@@ -1,5 +1,4 @@
 ﻿
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import './App.css';
@@ -22,9 +21,9 @@ const THEME_PALETTES = {
         pink: '#e879f9', teal: '#2dd4bf', rose: '#f43f5e'
     },
     pastel: {
-        green: '#bbf7d0', blue: '#bfdbfe', indigo: '#c7d2fe', yellow: '#fef08a',
-        red: '#fecaca', purple: '#e9d5ff', lime: '#d9f99d', orange: '#fed7aa',
-        pink: '#fbcfe8', teal: '#99f6e4', rose: '#fecdd3'
+        green: '#86efac', blue: '#93c5fd', indigo: '#a5b4fc', yellow: '#fde047',
+        red: '#fca5a5', purple: '#d8b4fe', lime: '#bef264', orange: '#fdba74',
+        pink: '#f9a8d4', teal: '#5eead4', rose: '#fda4af'
     },
     misty: {
         green: '#84a59d', blue: '#8da9c4', indigo: '#6b705c', yellow: '#e9c46a',
