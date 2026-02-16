@@ -533,12 +533,22 @@ body {
     pointer-events: none;
 }
 
+/* Misty Theme: Add gaps to mini-grids (hand & drag preview) */
+[data-theme="misty"] .mini-grid {
+    gap: 1px;
+}
+
 .mini-cell {
     width: 20px;
     height: 20px;
     border-radius: 0; /* Changed from 2px */
     box-sizing: border-box;
     border: none;
+}
+
+/* Remove border for Misty theme cells in mini-grid to rely on gap */
+[data-theme="misty"] .mini-cell {
+    border: none !important;
 }
 
 
