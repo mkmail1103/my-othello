@@ -409,17 +409,6 @@ body {
     width: 100%;
 }
 
-/* Misty Theme: Add gaps between blocks */
-[data-theme="misty"] .board {
-    gap: 3px;
-    padding: 3px; /* Ensure uniform look */
-}
-
-[data-theme="misty"] .cell {
-    border-radius: 4px;
-    border: none;
-}
-
 .cell {
     width: 100%;
     aspect-ratio: 1;
