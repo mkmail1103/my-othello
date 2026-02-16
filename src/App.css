@@ -514,17 +514,17 @@ body {
         cursor: grabbing;
     }
 
-/* MINI GRID: Add gaps to match block puzzle style */
+/* MINI GRID: Remove gaps to match block puzzle style */
 .mini-grid {
     display: grid;
-    gap: 2px; /* Added spacing */
+    gap: 0; /* Changed from 2px */
     pointer-events: none;
 }
 
 .mini-cell {
     width: 20px;
     height: 20px;
-    border-radius: 2px; /* Slight radius looks better with gaps */
+    border-radius: 0; /* Changed from 2px */
     box-sizing: border-box;
     border: none;
 }

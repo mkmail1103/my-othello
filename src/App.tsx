@@ -1,4 +1,5 @@
 ﻿
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import './App.css';
@@ -825,7 +826,11 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                             {shape && (
                                 <div className="mini-grid" style={{ gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)` }}>
                                     {shape.matrix.map((row, r) => row.map((val, c) => (
-                                        <div key={`${r}-${c}`} className="mini-cell" style={{ backgroundColor: val ? color : 'transparent' }} />
+                                        <div key={`${r}-${c}`} className="mini-cell" style={{
+                                            backgroundColor: val ? color : 'transparent',
+                                            border: val ? 'var(--cell-border)' : 'none',
+                                            boxShadow: val ? '0 0 5px rgba(0,0,0,0.2)' : 'none'
+                                        }} />
                                     )))}
                                 </div>
                             )}
@@ -839,12 +844,13 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                     <div className="mini-grid" style={{
                         gridTemplateColumns: `repeat(${hand[dragState.shapeIdx]!.matrix[0].length}, 1fr)`,
                         width: `${hand[dragState.shapeIdx]!.matrix[0].length * dragState.boardCellSize}px`,
-                        gap: '2px'
                     }}>
                         {hand[dragState.shapeIdx]!.matrix.map((row, r) => row.map((val, c) => (
                             <div key={`${r}-${c}`} className="mini-cell" style={{
                                 backgroundColor: val ? getThemeColor(hand[dragState.shapeIdx]!.colorKey) : 'transparent',
-                                width: `${dragState.boardCellSize}px`, height: `${dragState.boardCellSize}px`, borderRadius: '4px'
+                                width: `${dragState.boardCellSize}px`, height: `${dragState.boardCellSize}px`,
+                                border: val ? 'var(--cell-border)' : 'none',
+                                boxShadow: val ? '0 0 5px rgba(0,0,0,0.2)' : 'none'
                             }} />
                         )))}
                     </div>
