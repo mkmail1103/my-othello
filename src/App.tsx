@@ -13,7 +13,6 @@ export type BoardState = CellState[][];
 type ThemeType = 'neon' | 'pastel' | 'misty' | 'muted-blue' | 'muted-purple';
 
 // Color Palettes for Block Puzzle
-// Extended with new themes mapping
 const THEME_PALETTES = {
     neon: {
         green: '#34d399', blue: '#60a5fa', indigo: '#818cf8', yellow: '#facc15',
@@ -63,8 +62,16 @@ enum OthelloStatus {
 const DRAG_SENSITIVITY = 1.5;
 const TOUCH_OFFSET_Y = 100;
 
+// Updated Score Table: 1 line = 30, Simultaneous clears are heavily rewarded
 const BASE_SCORES: { [key: number]: number } = {
-    1: 10, 2: 20, 3: 60, 4: 120, 5: 200, 6: 300, 7: 420, 8: 560
+    1: 30,
+    2: 80,   // Bonus for 2 at once
+    3: 200,  // Big bonus
+    4: 500,
+    5: 1000,
+    6: 2000,
+    7: 3500,
+    8: 5000
 };
 
 type ColorKey = keyof typeof THEME_PALETTES.neon;
@@ -72,11 +79,10 @@ type ColorKey = keyof typeof THEME_PALETTES.neon;
 type ShapeDef = {
     id: string;
     matrix: number[][];
-    colorKey: ColorKey; // Changed from hex string to key
+    colorKey: ColorKey;
     difficulty: number;
 };
 
-// Updated Shapes using Color Keys
 const PUZZLE_SHAPES: ShapeDef[] = [
     { id: 'I1', matrix: [[1]], colorKey: 'rose', difficulty: 1 },
     { id: 'I2', matrix: [[1, 1]], colorKey: 'green', difficulty: 1 },
@@ -103,7 +109,6 @@ const PUZZLE_SHAPES: ShapeDef[] = [
     { id: 'S3', matrix: [[0, 1, 1], [1, 1, 0]], colorKey: 'teal', difficulty: 2 },
 ];
 
-// Helper: Smart Generation
 const getSmartShapes = (grid: (string | null)[][], count: number) => {
     let filledCount = 0;
     grid.forEach(r => r.forEach(c => { if (c) filledCount++; }));
@@ -373,7 +378,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
 
     // --- Audio Initialization ---
     useEffect(() => {
-        // Initialize AudioContext
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
         if (AudioContextClass) {
@@ -392,7 +396,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
             }
         };
 
-        // Load all sounds
         ['pickup', 'place', 'clear', 'gameover', 'bgm'].forEach(name => loadSound(name));
 
         return () => {
@@ -402,23 +405,14 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
         };
     }, []);
 
-    // --- Play Sound Helper (Web Audio API) ---
     const playSound = useCallback((type: 'pickup' | 'place' | 'clear' | 'gameover') => {
         if (isMuted || !audioContextRef.current || !audioBuffersRef.current[type]) return;
-
         const ctx = audioContextRef.current;
-        // Check if context is suspended (iOS policy) and try to resume if possible
-        if (ctx.state === 'suspended') {
-            ctx.resume();
-        }
-
+        if (ctx.state === 'suspended') ctx.resume();
         const source = ctx.createBufferSource();
         source.buffer = audioBuffersRef.current[type];
-
-        // Gain node for volume control if needed, simple here
         const gainNode = ctx.createGain();
-        gainNode.gain.value = 0.5; // 50% volume
-
+        gainNode.gain.value = 0.5;
         source.connect(gainNode);
         gainNode.connect(ctx.destination);
         source.start(0);
@@ -428,18 +422,13 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
     useEffect(() => {
         const startBGM = () => {
             if (isMuted || !audioContextRef.current || !audioBuffersRef.current['bgm']) return;
-
-            // If already playing, don't start another
             if (bgmSourceRef.current) return;
-
             const ctx = audioContextRef.current;
             const source = ctx.createBufferSource();
             source.buffer = audioBuffersRef.current['bgm'];
             source.loop = true;
-
             const gainNode = ctx.createGain();
-            gainNode.gain.value = 0.3; // 30% volume
-
+            gainNode.gain.value = 0.3;
             source.connect(gainNode);
             gainNode.connect(ctx.destination);
             source.start(0);
@@ -448,9 +437,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
 
         const stopBGM = () => {
             if (bgmSourceRef.current) {
-                try {
-                    bgmSourceRef.current.stop();
-                } catch { /* ignore */ }
+                try { bgmSourceRef.current.stop(); } catch { /* ignore */ }
                 bgmSourceRef.current = null;
             }
         };
@@ -458,24 +445,17 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
         if (isMuted) {
             stopBGM();
         } else {
-            // Need to wait for buffer to load. Simple polling for demo.
             const checkBuffer = setInterval(() => {
                 if (audioBuffersRef.current['bgm']) {
                     startBGM();
                     clearInterval(checkBuffer);
                 }
             }, 500);
-            return () => {
-                clearInterval(checkBuffer);
-                stopBGM();
-            };
+            return () => { clearInterval(checkBuffer); stopBGM(); };
         }
     }, [isMuted]);
 
-    // Toggle Mute
-    const toggleMute = () => {
-        setIsMuted(prev => !prev);
-    };
+    const toggleMute = () => { setIsMuted(prev => !prev); };
 
     useEffect(() => {
         if (hand.length > 0 && hand.every(h => h === null) && clearingCells.length === 0) {
@@ -506,7 +486,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
         return !canMove;
     }, [hand, grid, clearingCells.length]);
 
-    // Game Over Sound
     useEffect(() => {
         if (isGameOver) playSound('gameover');
     }, [isGameOver, playSound]);
@@ -520,15 +499,11 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
     };
 
     const handlePointerDown = (e: React.PointerEvent, idx: number) => {
-        // Unlock AudioContext on iOS/Android first interaction
         if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
             audioContextRef.current.resume();
         }
-
         if (isGameOver || hand[idx] === null) return;
-
         playSound('pickup');
-
         const target = e.currentTarget as HTMLElement;
         target.setPointerCapture(e.pointerId);
 
@@ -633,33 +608,16 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                     }
                 }
 
-                const rowsToClear: number[] = [];
-                const colsToClear: number[] = [];
-                for (let r = 0; r < 8; r++) { if (newGrid[r].every(cell => cell !== null)) rowsToClear.push(r); }
-                for (let c = 0; c < 8; c++) {
-                    let full = true;
-                    for (let r = 0; r < 8; r++) { if (newGrid[r][c] === null) { full = false; break; } }
-                    if (full) colsToClear.push(c);
-                }
-                const totalLines = rowsToClear.length + colsToClear.length;
-
-                let moveTotalScore = placementScore;
-                if (totalLines > 0) {
-                    const nextCombo = combo + 1;
-                    const baseScore = BASE_SCORES[totalLines] || (totalLines * 60);
-                    const clearScore = baseScore * (nextCombo + 1);
-                    moveTotalScore += clearScore;
-                }
-
-                addFloatingText(currentX, currentY - TOUCH_OFFSET_Y, `+${moveTotalScore}`);
+                // Add placement score first
                 setScore(prev => prev + placementScore);
 
+                // Note: floating text for total move score is handled in checkLinesAndScore to sum up bonuses
                 const newHand = [...hand];
                 newHand[shapeIdx] = null;
                 setHand(newHand);
                 setGrid(newGrid);
 
-                checkLinesAndScore(newGrid);
+                checkLinesAndScore(newGrid, placementScore, currentX, currentY - TOUCH_OFFSET_Y);
             }
         }
         setDragState(null);
@@ -684,7 +642,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
         return [];
     }, [dragState, grid, hand]);
 
-    const checkLinesAndScore = (currentGrid: (string | null)[][]) => {
+    const checkLinesAndScore = (currentGrid: (string | null)[][], initialPlacementScore: number, animX: number, animY: number) => {
         const rowsToClear: number[] = [];
         const colsToClear: number[] = [];
         for (let r = 0; r < 8; r++) { if (currentGrid[r].every(cell => cell !== null)) rowsToClear.push(r); }
@@ -695,25 +653,55 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
         }
 
         const totalLines = rowsToClear.length + colsToClear.length;
+        let totalMoveScore = initialPlacementScore;
 
         if (totalLines > 0) {
-
             playSound('clear');
-
             setMovesSinceClear(0);
-            const newCombo = combo + 1;
+
+            // 1. Combo Increase Logic: +Lines cleared
+            const addedCombo = totalLines;
+            const newCombo = combo + addedCombo;
             setCombo(newCombo);
 
-            const baseScore = BASE_SCORES[totalLines] || (totalLines * 60);
-            const points = baseScore * (newCombo + 1);
+            // 2. Score Logic: Base * Combo Multiplier
+            const baseLineScore = BASE_SCORES[totalLines] || (totalLines * 50);
+            const lineScore = baseLineScore * newCombo;
+            totalMoveScore += lineScore;
 
+            // 3. All Clear Check (Look ahead at what the grid will be)
+            let isAllClear = true;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    // If cell is occupied AND not in a cleared row AND not in a cleared col
+                    if (currentGrid[r][c] !== null && !rowsToClear.includes(r) && !colsToClear.includes(c)) {
+                        isAllClear = false;
+                        break;
+                    }
+                }
+                if (!isAllClear) break;
+            }
+
+            if (isAllClear) {
+                totalMoveScore += 300;
+                setTimeout(() => {
+                    setComboText({ main: "ALL CLEAR!", sub: "+300 Points" });
+                    setTimeout(() => setComboText(null), 2000);
+                }, 500);
+            }
+
+            // Combo text
             if (newCombo >= 2) {
-                let mainText = "Great!";
-                if (newCombo >= 4) mainText = "Amazing!";
-                if (newCombo >= 6) mainText = "Perfect!";
+                let mainText = "Good!";
+                if (newCombo >= 5) mainText = "Great!";
+                if (newCombo >= 10) mainText = "Unstoppable!";
                 if (totalLines >= 3) mainText = "Incredible!";
-                setComboText({ main: mainText, sub: `Combo x${newCombo}` });
-                setTimeout(() => setComboText(null), 1500);
+
+                // Don't overwrite All Clear text immediately
+                if (!isAllClear) {
+                    setComboText({ main: mainText, sub: `Combo x${newCombo}` });
+                    setTimeout(() => setComboText(null), 1500);
+                }
             }
 
             setIsShaking(true);
@@ -725,7 +713,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
             setClearingCells(cellsToAnim);
 
             setTimeout(() => {
-                setScore(prev => prev + points);
+                setScore(prev => prev + lineScore + (isAllClear ? 300 : 0));
                 const nextGrid = currentGrid.map(row => [...row]);
                 rowsToClear.forEach(r => { for (let c = 0; c < 8; c++) nextGrid[r][c] = null; });
                 colsToClear.forEach(c => { for (let r = 0; r < 8; r++) nextGrid[r][c] = null; });
@@ -733,13 +721,26 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                 setClearingCells([]);
             }, 400);
         } else {
+            // Miss Logic
             const newMovesSinceClear = movesSinceClear + 1;
             setMovesSinceClear(newMovesSinceClear);
-            if (newMovesSinceClear > 2) {
-                setCombo(0);
+
+            // 4. Protection Logic (UPDATED)
+            // If combo >= 10, allow 3 misses (reset on 4th miss). 
+            // If combo < 10, allow 2 misses (reset on 3rd miss).
+            const limit = combo >= 10 ? 3 : 2;
+
+            if (newMovesSinceClear > limit) {
+                if (combo > 0) {
+                    setCombo(0);
+                    setComboText({ main: "Combo Lost", sub: "" });
+                    setTimeout(() => setComboText(null), 1000);
+                }
                 setMovesSinceClear(0);
             }
         }
+
+        addFloatingText(animX, animY, `+${totalMoveScore}`);
     };
 
     return (
@@ -771,8 +772,19 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                 <div className="combo-center-area">
                     {combo > 0 ? (
                         <div className="combo-badge-container-static">
-                            <div className="combo-badge animate-pulse">{combo}x COMBO</div>
-                            {movesSinceClear > 0 && <div className="combo-warning">{movesSinceClear === 1 ? "⚠️" : "⚠️⚠️"}</div>}
+                            <div className="combo-badge animate-pulse" style={{ color: combo >= 10 ? '#ffd700' : 'var(--accent-color)' }}>
+                                {combo}x COMBO
+                            </div>
+                            {combo >= 10 ? (
+                                <div className="shield-indicator" title="Shield Active: Protects combo from 3 misses">
+                                    🛡️ {3 - movesSinceClear} left
+                                </div>
+                            ) : (
+                                <div className="shield-indicator-small" style={{ fontSize: '0.75rem', opacity: 0.9, color: movesSinceClear === 2 ? '#ff6b6b' : 'inherit' }}>
+                                    {movesSinceClear === 0 ? "Safe" :
+                                        movesSinceClear === 1 ? "⚠️ Careful" : "🔥 Last Chance"}
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <span className="game-title-small">BLOCK PUZZLE</span>
