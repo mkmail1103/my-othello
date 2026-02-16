@@ -409,13 +409,15 @@ body {
     width: 100%;
 }
 
-/* Misty Theme: Add gaps between blocks (requested) */
-[data-theme="misty"] .board {
+/* Misty & Neon Theme: Add gaps between blocks */
+[data-theme="misty"] .board,
+[data-theme="neon"] .board {
     gap: 2px;
     padding: 2px;
 }
-/* For Misty, use gap for separation instead of border */
-[data-theme="misty"] .cell {
+/* For Misty & Neon, use gap for separation instead of border */
+[data-theme="misty"] .cell,
+[data-theme="neon"] .cell {
     border: none;
 }
 
@@ -533,8 +535,9 @@ body {
     pointer-events: none;
 }
 
-/* Misty Theme: Add gaps to mini-grids (hand & drag preview) */
-[data-theme="misty"] .mini-grid {
+/* Misty & Neon Theme: Add gaps to mini-grids (hand & drag preview) */
+[data-theme="misty"] .mini-grid,
+[data-theme="neon"] .mini-grid {
     gap: 1px;
 }
 
@@ -546,8 +549,9 @@ body {
     border: none;
 }
 
-/* Remove border for Misty theme cells in mini-grid to rely on gap */
-[data-theme="misty"] .mini-cell {
+/* Remove border for Misty & Neon theme cells in mini-grid to rely on gap */
+[data-theme="misty"] .mini-cell,
+[data-theme="neon"] .mini-cell {
     border: none !important;
 }
 
