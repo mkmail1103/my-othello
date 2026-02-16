@@ -486,6 +486,7 @@ body {
     justify-content: center;
     align-items: center;
     margin-top: auto;
+    margin-bottom: 40px;
     width: 100%;
     /* INCREASED HEIGHT AND PADDING TO FIX CUT-OFF ON MOBILE */
     /* safe-area-inset-bottom gets the safe area on iPhone (home bar) */
