@@ -304,7 +304,7 @@ body {
     justify-content: flex-start;
     height: 100dvh;
     padding: 1rem;
-    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-top: max(0.5rem, env(safe-area-inset-top));
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
     box-sizing: border-box;
     width: 100vw;
