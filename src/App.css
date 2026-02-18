@@ -303,6 +303,12 @@ body {
     position: relative;
 }
 
+    /* Othello Specific Layout: Centers content and gives more top space */
+    .game-container.othello-mode {
+        justify-content: center;
+        padding-top: max(3rem, env(safe-area-inset-top));
+    }
+
 [data-theme="neon"] .game-container {
     background: radial-gradient(circle at 50% 30%, #1f2937 0%, #000 100%);
 }

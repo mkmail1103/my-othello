@@ -135,7 +135,7 @@ const OthelloGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
 
     return (
-        <div className="game-container">
+        <div className="game-container othello-mode">
             {status === OthelloStatus.FINISHED && (
                 <div className="result-overlay">
                     <div className={`result-card ${winner === myColor ? 'win' : winner === 'draw' ? 'draw' : 'lose'}`}>
