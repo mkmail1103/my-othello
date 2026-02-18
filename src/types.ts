@@ -2,6 +2,8 @@ export type PlayerColor = 'black' | 'white';
 export type CellState = PlayerColor | null;
 export type BoardState = CellState[][];
 
+export type ThemeType = 'neon' | 'pastel' | 'misty' | 'muted-blue' | 'muted-purple';
+
 export interface Player {
     id: string;
     color: PlayerColor;

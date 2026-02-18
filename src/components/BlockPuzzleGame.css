@@ -1,0 +1,88 @@
+/* Clearing Animation */
+@keyframes flashClear {
+	0% {
+		background-color: #fff;
+		transform: scale(1);
+		filter: brightness(2);
+	}
+
+	30% {
+		background-color: var(--accent-color);
+	}
+
+	100% {
+		background-color: var(--cell-bg);
+		transform: scale(1);
+		filter: brightness(1);
+	}
+}
+
+.puzzle-cell.clearing {
+	animation: flashClear 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+	z-index: 20;
+}
+
+/* Potential Clear Overlay */
+.potential-clear-overlay {
+	position: absolute;
+	inset: 0;
+	background-color: var(--guide-overlay);
+	z-index: 10;
+	border-radius: inherit;
+	pointer-events: none;
+	animation: pulseGuide 1s infinite;
+}
+
+@keyframes pulseGuide {
+	0% {
+		opacity: 0.3;
+	}
+
+	50% {
+		opacity: 0.7;
+	}
+
+	100% {
+		opacity: 0.3;
+	}
+}
+
+.cell.ghost-active {
+	background-color: rgba(255, 255, 255, 0.1);
+}
+
+.instructions {
+	margin-top: 5px;
+	font-size: 0.8rem;
+	opacity: 0.6;
+	text-align: center;
+}
+
+.shield-indicator {
+	font-size: 0.85rem;
+	background: rgba(255,255,255,0.1);
+	padding: 2px 8px;
+	border-radius: 10px;
+	margin-top: 2px;
+}
+
+.game-title-small {
+	font-size: 0.8rem;
+	font-weight: bold;
+	opacity: 0.5;
+	letter-spacing: 2px;
+}
+
+.combo-badge-container-static {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+}
+
+.combo-badge {
+	font-size: 1.2rem;
+	font-weight: bold;
+	color: var(--accent-color);
+	white-space: nowrap;
+}
