@@ -6,6 +6,10 @@ import './BlockPuzzleGame.css';
 const DRAG_SENSITIVITY = 1.5;
 const TOUCH_OFFSET_Y = 100;
 
+// 振動の長さ（ミリ秒）。
+// 数値を変えることで調整可能。小さくすると弱く（短く）感じ、大きくすると強く（長く）感じる。
+const HAPTIC_DURATION = 15;
+
 const canPlace = (currentGrid: (string | null)[][], matrix: number[][], r: number, c: number) => {
     const rows = matrix.length;
     const cols = matrix[0].length;
@@ -87,7 +91,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
     const [combo, setCombo] = useState(0);
     const [movesSinceClear, setMovesSinceClear] = useState(0);
     const [comboText, setComboText] = useState<{ main: string, sub: string } | null>(null);
-    const [isShaking, setIsShaking] = useState(false);
+    // const [isShaking, setIsShaking] = useState(false); // Removed shaking state
 
     const [isMuted, setIsMuted] = useState(false);
 
@@ -149,6 +153,13 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
         gainNode.connect(ctx.destination);
         source.start(0);
     }, [isMuted]);
+
+    // Haptic Feedback Helper
+    const triggerHaptic = () => {
+        if (navigator.vibrate) {
+            navigator.vibrate(HAPTIC_DURATION);
+        }
+    };
 
     useEffect(() => {
         const startBGM = () => {
@@ -386,6 +397,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
 
         if (totalLines > 0) {
             playSound('clear');
+            triggerHaptic(); // Vibrate when clearing lines
             setMovesSinceClear(0);
 
             const addedCombo = totalLines;
@@ -427,8 +439,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                 }
             }
 
-            setIsShaking(true);
-            setTimeout(() => setIsShaking(false), 500);
+            // Removed setIsShaking(true);
 
             const cellsToAnim: string[] = [];
             rowsToClear.forEach(r => { for (let c = 0; c < 8; c++) cellsToAnim.push(`${r}-${c}`); });
@@ -452,8 +463,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
             if (newMovesSinceClear > limit) {
                 if (combo > 0) {
                     setCombo(0);
-                    setComboText({ main: "Combo Lost", sub: "" });
-                    setTimeout(() => setComboText(null), 1000);
+                    // Removed Combo Lost text logic
                 }
                 setMovesSinceClear(0);
             }
@@ -518,7 +528,7 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                 </div>
             </div>
 
-            <div className={`board-wrapper glass-panel ${isShaking ? 'shake-effect' : ''}`}>
+            <div className="board-wrapper glass-panel">
                 <div className="board puzzle-board" ref={boardRef}>
                     {grid.map((row, r) => row.map((cell, c) => {
                         const cellKey = `${r}-${c}`;

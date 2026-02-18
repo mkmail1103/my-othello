@@ -12,14 +12,15 @@ enum GameMode {
 
 const App: React.FC = () => {
     const [gameMode, setGameMode] = useState<GameMode>(GameMode.MENU);
-    const [theme, setTheme] = useState<ThemeType>('pastel');
+    const [theme, setTheme] = useState<ThemeType>('muted-blue');
 
     // Apply theme to body
     useEffect(() => {
         document.body.setAttribute('data-theme', theme);
     }, [theme]);
 
-    const themes: ThemeType[] = ['neon', 'pastel', 'misty', 'muted-blue', 'muted-purple'];
+    // Update theme order: muted-blue, muted-purple, misty, pastel, neon
+    const themes: ThemeType[] = ['muted-blue', 'muted-purple', 'misty', 'pastel', 'neon'];
 
     const getThemeGradient = (t: ThemeType) => {
         switch (t) {

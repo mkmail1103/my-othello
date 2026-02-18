@@ -121,13 +121,15 @@ const OthelloGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         return (
             <div className="lobby-container">
                 <div className="lobby-card">
-                    <button onClick={onBack} className="back-link">Å© Back to Menu</button>
+                    {/* HTML Entity code for Left Arrow to avoid encoding issues */}
+                    <button onClick={onBack} className="back-link">&#8592; Back to Menu</button>
                     <h1 className="title neon-text">Othello Lobby</h1>
                     <div className="input-group">
                         <label>Room ID</label>
                         <input type="text" value={inputRoomID} onChange={(e) => setInputRoomID(e.target.value)} placeholder="Enter room name..." onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()} />
                     </div>
-                    <button onClick={handleJoinRoom} className="join-btn neon-btn">Join / Create Room</button>
+                    {/* Added margin-top for spacing */}
+                    <button onClick={handleJoinRoom} className="join-btn neon-btn" style={{ marginTop: '20px' }}>Join / Create Room</button>
                     {error && <div className="error-msg">{error}</div>}
                 </div>
             </div>
