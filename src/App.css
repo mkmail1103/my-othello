@@ -384,6 +384,10 @@ body {
     width: 100%;
 }
 
+    .board.board-10 {
+        grid-template-columns: repeat(10, 1fr);
+    }
+
 [data-theme="misty"] .board,
 [data-theme="neon"] .board {
     gap: 2px;

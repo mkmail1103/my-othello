@@ -3,11 +3,13 @@ import './App.css';
 import type { ThemeType } from './types';
 import OthelloGame from './components/OthelloGame';
 import BlockPuzzleGame from './components/BlockPuzzleGame';
+import BlockPuzzleOnline from './components/BlockPuzzleOnline';
 
 enum GameMode {
     MENU = 'MENU',
     OTHELLO = 'OTHELLO',
-    BLOCK_PUZZLE = 'BLOCK_PUZZLE'
+    BLOCK_PUZZLE = 'BLOCK_PUZZLE',
+    BLOCK_PUZZLE_ONLINE = 'BLOCK_PUZZLE_ONLINE'
 }
 
 const App: React.FC = () => {
@@ -64,8 +66,15 @@ const App: React.FC = () => {
                         <button onClick={() => setGameMode(GameMode.BLOCK_PUZZLE)} className="menu-btn puzzle-btn glass-panel">
                             <span className="icon">🧩</span>
                             <div className="text">
-                                <span className="main neon-text-white">Block Puzzle</span>
-                                <span className="sub">Solo Relaxing</span>
+                                <span className="main neon-text-white">Block Puzzle (Solo)</span>
+                                <span className="sub">Relaxing</span>
+                            </div>
+                        </button>
+                        <button onClick={() => setGameMode(GameMode.BLOCK_PUZZLE_ONLINE)} className="menu-btn puzzle-btn glass-panel" style={{ borderLeftColor: '#f472b6' }}>
+                            <span className="icon">⚔️</span>
+                            <div className="text">
+                                <span className="main neon-text-white">Block Puzzle (PvP)</span>
+                                <span className="sub">Online Battle</span>
                             </div>
                         </button>
                     </div>
@@ -80,6 +89,10 @@ const App: React.FC = () => {
 
     if (gameMode === GameMode.BLOCK_PUZZLE) {
         return <BlockPuzzleGame onBack={() => setGameMode(GameMode.MENU)} theme={theme} />;
+    }
+
+    if (gameMode === GameMode.BLOCK_PUZZLE_ONLINE) {
+        return <BlockPuzzleOnline onBack={() => setGameMode(GameMode.MENU)} theme={theme} />;
     }
 
     return null;
