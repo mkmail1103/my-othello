@@ -108,7 +108,7 @@ async function startServer() {
         app.use(vite.middlewares);
     } else {
         app.use(express.static(path.join(__dirname, 'dist')));
-        app.get('*', (req, res) => {
+        app.get('(.*)', (req, res) => {
             res.sendFile(path.join(__dirname, 'dist', 'index.html'));
         });
     }
@@ -120,20 +120,43 @@ async function startServer() {
         }
     });
 
-    const rooms: { [key: string]: any } = {};
+    // --- Types ---
+    interface Player {
+        id: string;
+        name: string;
+        color: string;
+    }
+
+    interface Room {
+        type: 'OTHELLO' | 'PUZZLE';
+        board: (string | null)[][];
+        turn: string;
+        players: Player[];
+        status: 'WAITING' | 'PLAYING' | 'FINISHED' | 'ABORTED';
+        hands?: { black: (ShapeDef | null)[], white: (ShapeDef | null)[] };
+        scores?: { black: number, white: number };
+    }
+
+    interface Flip {
+        r: number;
+        c: number;
+    }
+
+    const rooms: { [key: string]: Room } = {};
 
     io.on('connection', (socket) => {
         console.log('User connected:', socket.id);
-        // @ts-ignore
-        socket.currentRoom = null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (socket as any).currentRoom = null;
 
         // --- Othello Join ---
         socket.on('join_room', ({ roomId, playerName }) => {
-            // @ts-ignore
-            if (socket.currentRoom) socket.leave(socket.currentRoom);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const currentRoomId = (socket as any).currentRoom;
+            if (currentRoomId) socket.leave(currentRoomId);
             socket.join(roomId);
-            // @ts-ignore
-            socket.currentRoom = roomId;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (socket as any).currentRoom = roomId;
 
             if (!rooms[roomId]) {
                 rooms[roomId] = {
@@ -175,11 +198,11 @@ async function startServer() {
 
         // --- Puzzle Join ---
         socket.on('join_puzzle_room', ({ roomId, playerName }) => {
-            // @ts-ignore
-            if (socket.currentRoom) socket.leave(socket.currentRoom);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if ((socket as any).currentRoom) socket.leave((socket as any).currentRoom);
             socket.join(roomId);
-            // @ts-ignore
-            socket.currentRoom = roomId;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (socket as any).currentRoom = roomId;
 
             if (!rooms[roomId]) {
                 rooms[roomId] = {
@@ -214,8 +237,8 @@ async function startServer() {
             } else {
                 room.status = 'PLAYING';
                 // Refill hands just in case (though already init)
-                if (room.hands.black.length === 0) room.hands.black = getRandomShapes(3);
-                if (room.hands.white.length === 0) room.hands.white = getRandomShapes(3);
+                if (room.hands!.black.length === 0) room.hands!.black = getRandomShapes(3);
+                if (room.hands!.white.length === 0) room.hands!.white = getRandomShapes(3);
 
                 io.to(roomId).emit('puzzle_start', {
                     board: room.board,
@@ -242,14 +265,14 @@ async function startServer() {
             for (const [dr, dc] of directions) {
                 let r = row + dr;
                 let c = col + dc;
-                const flips = [];
+                const flips: Flip[] = [];
                 while (r >= 0 && r < 8 && c >= 0 && c < 8 && room.board[r][c] === opponent) {
                     flips.push({ r, c });
                     r += dr;
                     c += dc;
                 }
                 if (r >= 0 && r < 8 && c >= 0 && c < 8 && room.board[r][c] === color && flips.length > 0) {
-                    flips.forEach((p: any) => room.board[p.r][p.c] = color);
+                    flips.forEach((p: Flip) => room.board[p.r][p.c] = color);
                 }
             }
 
@@ -279,9 +302,11 @@ async function startServer() {
             const room = rooms[roomId];
             if (!room || room.status !== 'PLAYING' || room.type !== 'PUZZLE') return;
 
-            const color = room.turn;
+            const color = room.turn as 'black' | 'white';
             // Validate turn? Ideally yes, but client handles it too.
             // We assume socket.id matches turn player, but for simplicity just trust room.turn
+
+            if (!room.hands || !room.scores) return;
 
             const hand = room.hands[color];
             const shape = hand[shapeIndex];
@@ -306,7 +331,7 @@ async function startServer() {
             // Check Clears
             const rowsToClear: number[] = [];
             const colsToClear: number[] = [];
-            for (let r = 0; r < 10; r++) { if (room.board[r].every((c: any) => c !== null)) rowsToClear.push(r); }
+            for (let r = 0; r < 10; r++) { if (room.board[r].every((c: string | null) => c !== null)) rowsToClear.push(r); }
             for (let c = 0; c < 10; c++) {
                 let full = true;
                 for (let r = 0; r < 10; r++) { if (room.board[r][c] === null) { full = false; break; } }
@@ -322,11 +347,15 @@ async function startServer() {
                 colsToClear.forEach(c => { for (let r = 0; r < 10; r++) room.board[r][c] = null; });
             }
 
-            room.scores[color] += moveScore;
+            if (room.scores) {
+                room.scores[color as 'black' | 'white'] += moveScore;
+            }
 
             // Refill hand if empty
-            if (hand.every((h: any) => h === null)) {
-                room.hands[color] = getRandomShapes(3);
+            if (hand.every((h: ShapeDef | null) => h === null)) {
+                if (room.hands) {
+                    room.hands[color as 'black' | 'white'] = getRandomShapes(3);
+                }
             }
 
             // Switch Turn
@@ -334,7 +363,7 @@ async function startServer() {
             room.turn = nextTurn;
 
             // Check if NEXT player can move
-            const nextHand = room.hands[nextTurn];
+            const nextHand = room.hands[nextTurn as 'black' | 'white'];
             const canNextMove = hasAnyValidMove(room.board, nextHand);
 
             if (!canNextMove) {
@@ -360,11 +389,12 @@ async function startServer() {
 
         socket.on('disconnect', () => {
             console.log('User disconnected:', socket.id);
-            // @ts-ignore
-            const roomId = socket.currentRoom;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const roomId = (socket as any).currentRoom;
             if (roomId && rooms[roomId]) {
                 const room = rooms[roomId];
-                room.players = room.players.filter((p: any) => p.id !== socket.id);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                room.players = room.players.filter((p: Player) => p.id !== socket.id);
 
                 if (room.status === 'PLAYING') {
                     room.status = 'ABORTED';
