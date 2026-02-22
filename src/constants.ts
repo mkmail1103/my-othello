@@ -68,6 +68,18 @@ export const PUZZLE_SHAPES: ShapeDef[] = [
     { id: 'L3_V', matrix: [[1, 1], [1, 0]], colorKey: 'purple', difficulty: 1, category: 'medium' },
     { id: 'L3_VR', matrix: [[1, 1], [0, 1]], colorKey: 'purple', difficulty: 1, category: 'medium' },
 
+    // L4 (Tetris L-shape)
+    { id: 'L4_0', matrix: [[1, 0], [1, 0], [1, 1]], colorKey: 'orange', difficulty: 2, category: 'medium' },
+    { id: 'L4_90', matrix: [[1, 1, 1], [1, 0, 0]], colorKey: 'orange', difficulty: 2, category: 'medium' },
+    { id: 'L4_180', matrix: [[1, 1], [0, 1], [0, 1]], colorKey: 'orange', difficulty: 2, category: 'medium' },
+    { id: 'L4_270', matrix: [[0, 0, 1], [1, 1, 1]], colorKey: 'orange', difficulty: 2, category: 'medium' },
+
+    // J4 (Tetris J-shape)
+    { id: 'J4_0', matrix: [[0, 1], [0, 1], [1, 1]], colorKey: 'blue', difficulty: 2, category: 'medium' },
+    { id: 'J4_90', matrix: [[1, 0, 0], [1, 1, 1]], colorKey: 'blue', difficulty: 2, category: 'medium' },
+    { id: 'J4_180', matrix: [[1, 1], [1, 0], [1, 0]], colorKey: 'blue', difficulty: 2, category: 'medium' },
+    { id: 'J4_270', matrix: [[1, 1, 1], [0, 0, 1]], colorKey: 'blue', difficulty: 2, category: 'medium' },
+
     // T-Shapes (4 orientations)
     { id: 'T3_D', matrix: [[1, 1, 1], [0, 1, 0]], colorKey: 'pink', difficulty: 2, category: 'medium' }, // Down
     { id: 'T3_U', matrix: [[0, 1, 0], [1, 1, 1]], colorKey: 'pink', difficulty: 2, category: 'medium' }, // Up
