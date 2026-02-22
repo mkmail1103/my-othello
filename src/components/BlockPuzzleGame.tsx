@@ -7,7 +7,6 @@ const DRAG_SENSITIVITY = 1.5;
 const TOUCH_OFFSET_Y = 100;
 
 // 振動の長さ（ミリ秒）。
-// 数値を変えることで調整可能。小さくすると弱く（短く）感じ、大きくすると強く（長く）感じる。
 const HAPTIC_DURATION = 15;
 
 const canPlace = (currentGrid: (string | null)[][], matrix: number[][], r: number, c: number) => {
@@ -47,38 +46,97 @@ const getPotentialClears = (grid: (string | null)[][], matrix: number[][], r: nu
 };
 
 const getSmartShapes = (grid: (string | null)[][], count: number) => {
-    let filledCount = 0;
-    grid.forEach(r => r.forEach(c => { if (c) filledCount++; }));
-    const density = filledCount / 64;
-    const isCleanSlate = density === 0 || density < 0.1; // Empty or near empty
+    const shapes: ShapeDef[] = [];
+    // Deep copy grid for simulation to find a valid sequence of 3 blocks
+    const simGrid = grid.map(row => [...row]);
 
-    const shapes = [];
-    for (let i = 0; i < count; i++) {
-        let pool = PUZZLE_SHAPES;
+    const getFittingShapes = (currentGrid: (string | null)[][]) => {
+        const fitting: { shape: ShapeDef; moves: { r: number; c: number }[] }[] = [];
 
-        // --- GOD MODE / EARLY GAME LOGIC ---
-        if (isCleanSlate) {
-            const roll = Math.random();
-            if (roll < 0.8) {
-                pool = PUZZLE_SHAPES.filter(s => s.category === 'easy');
-            } else {
-                pool = PUZZLE_SHAPES.filter(s => s.category === 'medium');
+        // Shuffle shapes to ensure variety
+        const candidates = [...PUZZLE_SHAPES].sort(() => Math.random() - 0.5);
+
+        for (const shape of candidates) {
+            const moves: { r: number; c: number }[] = [];
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (canPlace(currentGrid, shape.matrix, r, c)) {
+                        moves.push({ r, c });
+                    }
+                }
+            }
+            // Optimization: we found valid moves for this shape
+            if (moves.length > 0) {
+                fitting.push({ shape, moves });
             }
         }
-        // --- NORMAL PLAY LOGIC ---
-        else if (density > 0.6) {
-            pool = PUZZLE_SHAPES.filter(s => s.difficulty <= 2);
-        } else {
-            const roll = Math.random();
-            if (roll < 0.4) pool = PUZZLE_SHAPES.filter(s => s.category === 'easy');
-            else if (roll < 0.8) pool = PUZZLE_SHAPES.filter(s => s.category === 'medium');
-            else pool = PUZZLE_SHAPES.filter(s => s.category === 'hard' || s.category === 'complex');
+        return fitting;
+    };
+
+    for (let i = 0; i < count; i++) {
+        const possibleOptions = getFittingShapes(simGrid);
+
+        if (possibleOptions.length === 0) {
+            // Impossible to place anything even in simulation. 
+            // Return a random shape (likely resulting in Game Over for the player).
+            shapes.push(PUZZLE_SHAPES[Math.floor(Math.random() * PUZZLE_SHAPES.length)]);
+            continue;
         }
 
-        if (pool.length === 0) pool = PUZZLE_SHAPES;
+        // Difficulty Heuristic: Filter options based on board density
+        let filledCount = 0;
+        simGrid.forEach(row => row.forEach(c => { if (c) filledCount++; }));
+        const density = filledCount / 64;
 
-        const rand = pool[Math.floor(Math.random() * pool.length)];
-        shapes.push(rand);
+        let filteredOptions = possibleOptions;
+
+        if (density < 0.2) {
+            // Mostly empty: prefer Hard/Complex/Medium to build up board
+            const hard = possibleOptions.filter(o => ['hard', 'complex', 'medium'].includes(o.shape.category));
+            if (hard.length > 0) filteredOptions = hard;
+        } else if (density > 0.6) {
+            // Mostly full: prefer Easy shapes to allow survival
+            const easy = possibleOptions.filter(o => ['easy'].includes(o.shape.category));
+            if (easy.length > 0) filteredOptions = easy;
+        }
+
+        // Pick a random shape from the filtered valid options
+        const selected = filteredOptions[Math.floor(Math.random() * filteredOptions.length)];
+        shapes.push(selected.shape);
+
+        // Update simGrid: Simulate placing this block so the NEXT block is valid for the new state.
+        // We pick a random valid move for this shape to verify solvability.
+        const move = selected.moves[Math.floor(Math.random() * selected.moves.length)];
+
+        // 1. Place on simGrid
+        const rows = selected.shape.matrix.length;
+        const cols = selected.shape.matrix[0].length;
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (selected.shape.matrix[r][c] === 1) {
+                    simGrid[move.r + r][move.c + c] = 'simulated';
+                }
+            }
+        }
+
+        // 2. Clear Lines on simGrid (Crucial: clearing lines opens space for next blocks)
+        const rowsToClear: number[] = [];
+        const colsToClear: number[] = [];
+        for (let r = 0; r < 8; r++) { if (simGrid[r].every(c => c !== null)) rowsToClear.push(r); }
+        for (let c = 0; c < 8; c++) {
+            let full = true;
+            for (let r = 0; r < 8; r++) { if (simGrid[r][c] === null) { full = false; break; } }
+            if (full) colsToClear.push(c);
+        }
+
+        if (rowsToClear.length > 0 || colsToClear.length > 0) {
+            for (const r of rowsToClear) {
+                for (let c = 0; c < 8; c++) simGrid[r][c] = null;
+            }
+            for (const c of colsToClear) {
+                for (let r = 0; r < 8; r++) simGrid[r][c] = null;
+            }
+        }
     }
     return shapes;
 };
@@ -86,12 +144,11 @@ const getSmartShapes = (grid: (string | null)[][], count: number) => {
 const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ onBack, theme }) => {
     const [grid, setGrid] = useState<(string | null)[][]>(Array(8).fill(null).map(() => Array(8).fill(null)));
     const [clearingCells, setClearingCells] = useState<string[]>([]);
-    const [hand, setHand] = useState<(ShapeDef | null)[]>(() => getSmartShapes(Array(8).fill(Array(8).fill(null)), 3));
+    const [hand, setHand] = useState<(ShapeDef | null)[]>(() => getSmartShapes(Array(8).fill(null).map(() => Array(8).fill(null)), 3));
     const [score, setScore] = useState(0);
     const [combo, setCombo] = useState(0);
     const [movesSinceClear, setMovesSinceClear] = useState(0);
     const [comboText, setComboText] = useState<{ main: string, sub: string } | null>(null);
-    // const [isShaking, setIsShaking] = useState(false); // Removed shaking state
 
     const [isMuted, setIsMuted] = useState(false);
 
@@ -439,8 +496,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
                 }
             }
 
-            // Removed setIsShaking(true);
-
             const cellsToAnim: string[] = [];
             rowsToClear.forEach(r => { for (let c = 0; c < 8; c++) cellsToAnim.push(`${r}-${c}`); });
             colsToClear.forEach(c => { for (let r = 0; r < 8; r++) cellsToAnim.push(`${r}-${c}`); });
@@ -463,7 +518,6 @@ const BlockPuzzleGame: React.FC<{ onBack: () => void; theme: ThemeType }> = ({ o
             if (newMovesSinceClear > limit) {
                 if (combo > 0) {
                     setCombo(0);
-                    // Removed Combo Lost text logic
                 }
                 setMovesSinceClear(0);
             }
