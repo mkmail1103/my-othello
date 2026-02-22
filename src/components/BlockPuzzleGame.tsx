@@ -10,25 +10,25 @@ const TOUCH_OFFSET_Y = 100;
 const HAPTIC_DURATION = 15;
 
 // 爽快感のあるプリセット（ID指定）
-const PRESET_COMBOS: string[][] = [
-    // The "User Requested" 8-width Combo (3 + 3 + 2)
-    ['SQR3', 'SQR3', 'RECT2x3'],
-    ['SQR3', 'SQR3', 'RECT3x2'],
-
-    // The "4+4" Line Builder
-    ['I4', 'I4', 'SQR2'],
-    ['I4_V', 'I4_V', 'SQR2'],
-
-    // The "5+3" Line Builder
-    ['I5', 'I3', 'I2'],
-    ['I5_V', 'I3_V', 'I2_V'],
-
-    // The "Tetris" Classic (T, L, Z often fit together)
-    ['T3_D', 'L3', 'Z3_H'],
-
-    // Big Block Bonanza (High risk high reward)
-    ['SQR3', 'L5_0', 'I3'],
-];
+// const PRESET_COMBOS: string[][] = [
+//     // The "User Requested" 8-width Combo (3 + 3 + 2)
+//     ['SQR3', 'SQR3', 'RECT2x3'], 
+//     ['SQR3', 'SQR3', 'RECT3x2'],
+//     
+//     // The "4+4" Line Builder
+//     ['I4', 'I4', 'SQR2'], 
+//     ['I4_V', 'I4_V', 'SQR2'],
+// 
+//     // The "5+3" Line Builder
+//     ['I5', 'I3', 'I2'],
+//     ['I5_V', 'I3_V', 'I2_V'],
+// 
+//     // The "Tetris" Classic (T, L, Z often fit together)
+//     ['T3_D', 'L3', 'Z3_H'],
+//     
+//     // Big Block Bonanza (High risk high reward)
+//     ['SQR3', 'L5_0', 'I3'],
+// ];
 
 const canPlace = (currentGrid: (string | null)[][], matrix: number[][], r: number, c: number) => {
     const rows = matrix.length;
@@ -71,9 +71,6 @@ const getSmartShapes = (grid: (string | null)[][], count: number) => {
     // Deep copy grid for simulation
     const simGrid = grid.map(row => [...row]);
 
-    // Helper: Find shape by ID
-    const findShape = (id: string) => PUZZLE_SHAPES.find(s => s.id === id);
-
     // Helper: Count filled cells on a grid
     const countFilled = (g: (string | null)[][]) => {
         let cnt = 0;
@@ -85,7 +82,7 @@ const getSmartShapes = (grid: (string | null)[][], count: number) => {
         return cnt;
     };
 
-    // Helper: Calculate placement score
+    // Helper: Calculate placement score with "Snug Fit" and 2-cell penalty
     const evaluatePlacement = (currentGrid: (string | null)[][], shape: ShapeDef) => {
         let bestScore = -9999;
         let bestMove: { r: number, c: number } | null = null;
@@ -105,13 +102,30 @@ const getSmartShapes = (grid: (string | null)[][], count: number) => {
                     // Create a temporary grid to simulate the move fully (including clears)
                     const tempGrid = currentGrid.map(row => [...row]);
 
-                    // 1. Place
+                    // 1. Place & Calculate Snug Fit
                     let blockSize = 0;
+                    let touchingEdges = 0;
+                    let totalEdges = 0;
+
                     for (let sr = 0; sr < shape.matrix.length; sr++) {
                         for (let sc = 0; sc < shape.matrix[0].length; sc++) {
                             if (shape.matrix[sr][sc] === 1) {
                                 tempGrid[r + sr][c + sc] = 'sim';
                                 blockSize++;
+
+                                // Check 4 neighbors for Snug Fit
+                                const neighbors = [
+                                    [-1, 0], [1, 0], [0, -1], [0, 1]
+                                ];
+                                for (const [dr, dc] of neighbors) {
+                                    const nr = r + sr + dr;
+                                    const nc = c + sc + dc;
+                                    totalEdges++;
+                                    // Touch wall or existing block
+                                    if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8 || currentGrid[nr][nc] !== null) {
+                                        touchingEdges++;
+                                    }
+                                }
                             }
                         }
                     }
@@ -139,30 +153,40 @@ const getSmartShapes = (grid: (string | null)[][], count: number) => {
                     let score = blockSize; // Base score
 
                     // ALL CLEAR BONUS (Critical for User Request)
-                    // If the board becomes completely empty, prioritize this heavily!
                     if (newFilledCount === 0 && currentFilledCount > 0) {
-                        score += 10000;
+                        score += 50000; // Massive bonus
                     }
                     // REDUCER BONUS
-                    // If we removed more blocks than we added (net reduction), give a strong bonus.
                     else if (newFilledCount < currentFilledCount) {
                         const reduction = currentFilledCount - newFilledCount;
-                        score += reduction * 15; // Higher bonus for cleaning up the board
+                        score += reduction * 20;
                     }
 
                     // Line Clear Bonus
                     if (linesCleared > 0) {
-                        score += linesCleared * 10;
+                        score += linesCleared * 15;
                     }
 
-                    // Penalize boring small blocks if they don't help clean up
-                    if (blockSize <= 2 && linesCleared === 0) {
-                        score -= 5;
+                    // Snug Fit Bonus (0 to 1 ratio)
+                    const snugRatio = totalEdges > 0 ? touchingEdges / totalEdges : 0;
+                    score += snugRatio * 10; // Up to +10 points for perfect fit
+
+                    // Penalize boring small blocks (2-cell) if they don't help clean up or fit perfectly
+                    const isSmall = blockSize <= 2;
+                    if (isSmall) {
+                        if (linesCleared === 0) {
+                            // If it's floating (low snug ratio), penalize heavily
+                            if (snugRatio < 0.5) {
+                                score -= 50; // Don't pick floating small blocks
+                            } else {
+                                score -= 10; // Even if fitting, prefer larger blocks unless necessary
+                            }
+                        }
                     }
 
                     // Bonus for "Hard" pieces if they fit (keeps game interesting)
                     if (shape.category === 'hard' || shape.category === 'complex') {
-                        score += 3;
+                        score += 5;
                     }
 
                     if (score > bestScore) {
@@ -175,87 +199,227 @@ const getSmartShapes = (grid: (string | null)[][], count: number) => {
         return { bestScore, bestMove };
     };
 
-    // --- STRATEGY 1: Try a Preset Combo ---
-    // Higher chance (60%) if board is empty to encourage All Clear loops
-    // Standard chance (30%) otherwise
-    const filledCount = countFilled(simGrid);
-    const presetChance = filledCount === 0 ? 0.6 : 0.3;
+    // --- STRATEGY: Hole Filling (Find shapes that fit gaps) ---
+    const findHoleFillers = (currentGrid: (string | null)[][]): ShapeDef[] => {
+        const visited = Array(8).fill(null).map(() => Array(8).fill(false));
+        const holes: { r: number, c: number }[][] = [];
 
-    if (Math.random() < presetChance) {
-        const presetIds = PRESET_COMBOS[Math.floor(Math.random() * PRESET_COMBOS.length)];
-        const candidateShapes = presetIds.map(findShape).filter(Boolean) as ShapeDef[];
+        // 1. Find connected empty components (holes)
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (currentGrid[r][c] === null && !visited[r][c]) {
+                    const hole: { r: number, c: number }[] = [];
+                    const queue = [{ r, c }];
+                    visited[r][c] = true;
 
-        if (candidateShapes.length === count) {
-            // Check if this preset is playable (simplified check)
-            const presetSimGrid = simGrid.map(r => [...r]);
-            const validPreset: ShapeDef[] = [];
+                    while (queue.length > 0) {
+                        const curr = queue.shift()!;
+                        hole.push(curr);
 
-            for (const shape of candidateShapes) {
-                const evalResult = evaluatePlacement(presetSimGrid, shape);
-                if (evalResult.bestMove) {
-                    // Update sim
-                    const { r, c } = evalResult.bestMove;
-                    for (let sr = 0; sr < shape.matrix.length; sr++) {
-                        for (let sc = 0; sc < shape.matrix[0].length; sc++) {
-                            if (shape.matrix[sr][sc] === 1) presetSimGrid[r + sr][c + sc] = 'sim';
+                        const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+                        for (const [dr, dc] of dirs) {
+                            const nr = curr.r + dr;
+                            const nc = curr.c + dc;
+                            if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && currentGrid[nr][nc] === null && !visited[nr][nc]) {
+                                visited[nr][nc] = true;
+                                queue.push({ r: nr, c: nc });
+                            }
                         }
                     }
-                    // (We skip full clear simulation here for speed, just check placement)
-                    validPreset.push(shape);
-                } else {
-                    break;
+                    holes.push(hole);
                 }
             }
+        }
 
-            if (validPreset.length === count) {
-                return validPreset;
+        // 2. Match holes to shapes
+        const matchingShapes: ShapeDef[] = [];
+
+        for (const hole of holes) {
+            if (hole.length > 5) continue; // Ignore large open spaces
+            if (hole.length < 2) continue; // Ignore 1x1 holes (no shape fits)
+
+            // Normalize hole coordinates
+            const minR = Math.min(...hole.map(p => p.r));
+            const minC = Math.min(...hole.map(p => p.c));
+
+            // Create a matrix signature for the hole
+            const maxR = Math.max(...hole.map(p => p.r));
+            const maxC = Math.max(...hole.map(p => p.c));
+            const height = maxR - minR + 1;
+            const width = maxC - minC + 1;
+
+            // Check against all shapes
+            for (const shape of PUZZLE_SHAPES) {
+                if (shape.matrix.length === height && shape.matrix[0].length === width) {
+                    let match = true;
+                    let blockCount = 0;
+                    for (let r = 0; r < height; r++) {
+                        for (let c = 0; c < width; c++) {
+                            const isHole = hole.some(p => p.r === minR + r && p.c === minC + c);
+                            const isBlock = shape.matrix[r][c] === 1;
+                            if (isHole !== isBlock) {
+                                match = false;
+                                break;
+                            }
+                            if (isBlock) blockCount++;
+                        }
+                        if (!match) break;
+                    }
+                    if (match && blockCount === hole.length) {
+                        matchingShapes.push(shape);
+                    }
+                }
             }
         }
+
+        // Return unique shapes
+        return Array.from(new Set(matchingShapes));
+    };
+
+    // --- STRATEGY: All Clear Search (Greedy Depth 3) ---
+    // Tries to find a sequence of 3 shapes that results in an empty board
+    const findAllClearSequence = (startGrid: (string | null)[][], depth: number): ShapeDef[] | null => {
+        if (depth === 0) return null;
+
+        // Heuristic: Only try this if board is relatively clean to save perf
+        if (countFilled(startGrid) > 25) return null;
+
+        // Try top candidates
+        const candidates = PUZZLE_SHAPES.map(shape => {
+            const res = evaluatePlacement(startGrid, shape);
+            return { shape, ...res };
+        })
+            .filter(c => c.bestMove !== null)
+            .sort((a, b) => b.bestScore - a.bestScore)
+            .slice(0, 5); // Only check top 5 moves to limit branching
+
+        for (const cand of candidates) {
+            const { shape, bestMove } = cand;
+            if (!bestMove) continue;
+
+            // Simulate move
+            const tempGrid = startGrid.map(row => [...row]);
+            const { r, c } = bestMove;
+
+            // Place
+            for (let sr = 0; sr < shape.matrix.length; sr++) {
+                for (let sc = 0; sc < shape.matrix[0].length; sc++) {
+                    if (shape.matrix[sr][sc] === 1) tempGrid[r + sr][c + sc] = 'sim';
+                }
+            }
+            // Clear
+            const rowsToClear: number[] = [];
+            const colsToClear: number[] = [];
+            for (let rr = 0; rr < 8; rr++) { if (tempGrid[rr].every(cell => cell !== null)) rowsToClear.push(rr); }
+            for (let cc = 0; cc < 8; cc++) {
+                let full = true;
+                for (let rr = 0; rr < 8; rr++) { if (tempGrid[rr][cc] === null) { full = false; break; } }
+                if (full) colsToClear.push(cc);
+            }
+            if (rowsToClear.length > 0 || colsToClear.length > 0) {
+                for (const rr of rowsToClear) { for (let cc = 0; cc < 8; cc++) tempGrid[rr][cc] = null; }
+                for (const cc of colsToClear) { for (let rr = 0; rr < 8; rr++) tempGrid[rr][cc] = null; }
+            }
+
+            // Check if All Clear
+            if (countFilled(tempGrid) === 0) {
+                return [shape];
+            }
+
+            // Recurse
+            const nextSteps = findAllClearSequence(tempGrid, depth - 1);
+            if (nextSteps) {
+                return [shape, ...nextSteps];
+            }
+        }
+        return null;
+    };
+
+
+    // --- MAIN SELECTION LOGIC ---
+
+    // 1. Try to find an All Clear Sequence first
+    const allClearSeq = findAllClearSequence(simGrid, count);
+    if (allClearSeq && allClearSeq.length === count) {
+        return allClearSeq;
     }
 
-    // --- STRATEGY 2: Smart "All Clear" & "Reducer" Selection ---
+    // 2. Identify Hole Fillers
+    const holeFillers = findHoleFillers(simGrid);
 
     for (let i = 0; i < count; i++) {
-        // Evaluate ALL shapes against current simGrid
+        // If we have hole fillers and it's the first or second pick, use them!
+        if (holeFillers.length > 0 && i < holeFillers.length && Math.random() < 0.7) {
+            const filler = holeFillers[i % holeFillers.length];
+            // Verify it still fits (simGrid changes)
+            if (evaluatePlacement(simGrid, filler).bestMove) {
+                shapes.push(filler);
+
+                // Update SimGrid
+                const res = evaluatePlacement(simGrid, filler);
+                if (res.bestMove) {
+                    const { r, c } = res.bestMove;
+                    // ... apply to simGrid (simplified update for brevity, assuming filler fits hole)
+                    // Actually we need to update simGrid properly to ensure next pieces fit
+                    // Copy-paste update logic:
+                    const tempGrid = simGrid.map(row => [...row]);
+                    for (let sr = 0; sr < filler.matrix.length; sr++) {
+                        for (let sc = 0; sc < filler.matrix[0].length; sc++) {
+                            if (filler.matrix[sr][sc] === 1) tempGrid[r + sr][c + sc] = 'sim';
+                        }
+                    }
+                    // Clear logic...
+                    const rowsToClear: number[] = [];
+                    const colsToClear: number[] = [];
+                    for (let rr = 0; rr < 8; rr++) { if (tempGrid[rr].every(cell => cell !== null)) rowsToClear.push(rr); }
+                    for (let cc = 0; cc < 8; cc++) {
+                        let full = true;
+                        for (let rr = 0; rr < 8; rr++) { if (tempGrid[rr][cc] === null) { full = false; break; } }
+                        if (full) colsToClear.push(cc);
+                    }
+                    if (rowsToClear.length > 0 || colsToClear.length > 0) {
+                        for (const rr of rowsToClear) { for (let cc = 0; cc < 8; cc++) tempGrid[rr][cc] = null; }
+                        for (const cc of colsToClear) { for (let rr = 0; rr < 8; rr++) tempGrid[rr][cc] = null; }
+                    }
+                    for (let r = 0; r < 8; r++) { for (let c = 0; c < 8; c++) simGrid[r][c] = tempGrid[r][c]; }
+                }
+                continue;
+            }
+        }
+
+        // 3. Standard Smart Selection
         const candidates = PUZZLE_SHAPES.map(shape => {
             const result = evaluatePlacement(simGrid, shape);
             return { shape, score: result.bestScore, bestMove: result.bestMove };
         }).filter(c => c.bestMove !== null);
 
         if (candidates.length === 0) {
-            // Emergency
             shapes.push(PUZZLE_SHAPES[Math.floor(Math.random() * PUZZLE_SHAPES.length)]);
             continue;
         }
 
-        // Sort by score (descending)
         candidates.sort((a, b) => b.score - a.score);
 
-        // Selection Logic:
-        // If the top score is huge (> 5000), it's an ALL CLEAR move. Pick it 100%.
-        // Otherwise, add a little randomness so we don't always pick the theoretical best, but still prioritize good moves.
         let selected;
-        if (candidates[0].score > 5000) {
+        if (candidates[0].score > 10000) { // All Clear or massive clear
             selected = candidates[0];
         } else {
-            // Pick from top 3 to keep variety
+            // Pick from top 3
             const topN = candidates.slice(0, 3);
             selected = topN[Math.floor(Math.random() * topN.length)];
         }
 
         shapes.push(selected.shape);
 
-        // Update SimGrid for next iteration (FULL simulation with clears)
+        // Update SimGrid for next iteration
         const { r: placeR, c: placeC } = selected.bestMove!;
         const tempGrid = simGrid.map(row => [...row]);
 
-        // Place
         for (let r = 0; r < selected.shape.matrix.length; r++) {
             for (let c = 0; c < selected.shape.matrix[0].length; c++) {
                 if (selected.shape.matrix[r][c] === 1) tempGrid[placeR + r][placeC + c] = 'sim';
             }
         }
-        // Clear
         const rowsToClear: number[] = [];
         const colsToClear: number[] = [];
         for (let r = 0; r < 8; r++) { if (tempGrid[r].every(c => c !== null)) rowsToClear.push(r); }
@@ -269,7 +433,6 @@ const getSmartShapes = (grid: (string | null)[][], count: number) => {
             for (const c of colsToClear) { for (let r = 0; r < 8; r++) tempGrid[r][c] = null; }
         }
 
-        // Update the main simGrid reference
         for (let r = 0; r < 8; r++) { for (let c = 0; c < 8; c++) simGrid[r][c] = tempGrid[r][c]; }
     }
 
