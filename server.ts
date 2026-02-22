@@ -237,8 +237,8 @@ async function startServer() {
             } else {
                 room.status = 'PLAYING';
                 // Refill hands just in case (though already init)
-                if (room.hands!.black.length === 0) room.hands!.black = getRandomShapes(3);
-                if (room.hands!.white.length === 0) room.hands!.white = getRandomShapes(3);
+                if (room.hands.black.length === 0) room.hands.black = getRandomShapes(3);
+                if (room.hands.white.length === 0) room.hands.white = getRandomShapes(3);
 
                 io.to(roomId).emit('puzzle_start', {
                     board: room.board,
@@ -265,7 +265,7 @@ async function startServer() {
             for (const [dr, dc] of directions) {
                 let r = row + dr;
                 let c = col + dc;
-                const flips: Flip[] = [];
+                const flips = [];
                 while (r >= 0 && r < 8 && c >= 0 && c < 8 && room.board[r][c] === opponent) {
                     flips.push({ r, c });
                     r += dr;
