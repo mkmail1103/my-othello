@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import type { PlayerColor, BoardState } from '../types';
+import type { PlayerColor, BoardState } from '../types.js';
 import './OthelloGame.css';
 
 enum OthelloStatus {

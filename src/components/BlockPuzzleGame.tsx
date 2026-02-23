@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import type { ThemeType } from '../types';
-import { THEME_PALETTES, PUZZLE_SHAPES, BASE_SCORES, type ShapeDef, type ColorKey } from '../constants';
+import type { ThemeType } from '../types.js';
+import { THEME_PALETTES, PUZZLE_SHAPES, BASE_SCORES, type ShapeDef, type ColorKey } from '../constants.js';
 import './BlockPuzzleGame.css';
 
 const DRAG_SENSITIVITY = 1.5;

@@ -1,9 +1,9 @@
 ﻿import React, { useState, useEffect } from 'react';
 import './App.css';
-import type { ThemeType } from './types';
-import OthelloGame from './components/OthelloGame';
-import BlockPuzzleGame from './components/BlockPuzzleGame';
-import BlockPuzzleOnline from './components/BlockPuzzleOnline';
+import type { ThemeType } from './types.js';
+import OthelloGame from './components/OthelloGame.js';
+import BlockPuzzleGame from './components/BlockPuzzleGame.js';
+import BlockPuzzleOnline from './components/BlockPuzzleOnline.js';
 
 enum GameMode {
     MENU = 'MENU',

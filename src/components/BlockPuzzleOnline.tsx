@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import { THEME_PALETTES, type ShapeDef, type ColorKey } from '../constants';
+import { THEME_PALETTES, type ShapeDef, type ColorKey } from '../constants.js';
 import './BlockPuzzleGame.css';
-
-const SOCKET_URL = 'http://localhost:3000';
 
 interface BlockPuzzleOnlineProps {
     onBack: () => void;
@@ -14,7 +12,7 @@ type GameStatus = 'LOBBY' | 'WAITING' | 'PLAYING' | 'FINISHED' | 'ABORTED';
 
 const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) => {
     // Lazy initialization for socket
-    const [socket] = useState(() => io(SOCKET_URL));
+    const [socket] = useState(() => io());
     const [status, setStatus] = useState<GameStatus>('LOBBY');
     const [roomId, setRoomId] = useState('');
     const [playerName, setPlayerName] = useState('');
