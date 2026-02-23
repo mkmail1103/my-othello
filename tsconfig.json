@@ -7,7 +7,7 @@
     "skipLibCheck": true,
 
     /* モジュール解決を Node 互換にする（重要） */
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,

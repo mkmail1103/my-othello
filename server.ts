@@ -268,7 +268,7 @@ async function startServer() {
             for (const [dr, dc] of directions) {
                 let r = row + dr;
                 let c = col + dc;
-                const flips = [];
+                const flips: Flip[] = [];
                 while (r >= 0 && r < 8 && c >= 0 && c < 8 && room.board[r][c] === opponent) {
                     flips.push({ r, c });
                     r += dr;
