@@ -251,6 +251,7 @@ async function startServer() {
             }
         });
 
+
         // --- Othello Move ---
         socket.on('make_move', ({ roomId, row, col }) => {
             const room = rooms[roomId];
