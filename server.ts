@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
@@ -108,7 +108,7 @@ async function startServer() {
         app.use(vite.middlewares);
     } else {
         app.use(express.static(path.join(__dirname, 'dist')));
-        app.get('(.*)', (req, res) => {
+        app.get('(.*)', (_req: Request, res: Response) => {
             res.sendFile(path.join(__dirname, 'dist', 'index.html'));
         });
     }
@@ -237,8 +237,10 @@ async function startServer() {
             } else {
                 room.status = 'PLAYING';
                 // Refill hands just in case (though already init)
-                if (room.hands.black.length === 0) room.hands.black = getRandomShapes(3);
-                if (room.hands.white.length === 0) room.hands.white = getRandomShapes(3);
+                if (room.hands) {
+                    if (room.hands.black.length === 0) room.hands.black = getRandomShapes(3);
+                    if (room.hands.white.length === 0) room.hands.white = getRandomShapes(3);
+                }
 
                 io.to(roomId).emit('puzzle_start', {
                     board: room.board,
@@ -412,6 +414,5 @@ async function startServer() {
         console.log(`Server running on http://localhost:${PORT}`);
     });
 }
-
 
 startServer();
