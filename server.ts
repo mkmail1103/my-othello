@@ -106,9 +106,12 @@ async function startServer() {
         });
         app.use(vite.middlewares);
     } else {
-        app.use(express.static(path.join(__dirname, 'dist')));
-        app.get(/.*/, (_req: Request, res: Response) => {
-            res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+        const distPath = path.join(__dirname, 'dist');
+        app.use(express.static(distPath));
+
+        // Handle client-side routing: serve index.html for all non-API routes
+        app.get('*', (_req: Request, res: Response) => {
+            res.sendFile(path.join(distPath, 'index.html'));
         });
     }
 
