@@ -1,15 +1,13 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './src/App';
-
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
-}
-
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-<React.StrictMode>
-    <App />
-</React.StrictMode>
-);
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Othello & Block Puzzle</title>
+</head>
+<body>
+    <div id="root"></div>
+    <!-- ここで実際のReactプログラム（main.tsx）を読み込みます -->
+    <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
