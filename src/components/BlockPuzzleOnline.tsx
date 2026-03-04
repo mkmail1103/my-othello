@@ -46,6 +46,9 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
     const colors = useMemo(() => THEME_PALETTES[theme as keyof typeof THEME_PALETTES] || THEME_PALETTES['neon'], [theme]);
 
     useEffect(() => {
+        // ’Ç‰Á: –œ‚ªˆê’ÊM‚ªØ‚ê‚Ä‚¢‚½ê‡‚ÉÄÚ‘±‚³‚¹‚é
+        socket.connect();
+
         socket.on('connect', () => {
             console.log('Connected to server');
         });
@@ -66,6 +69,8 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             setTurn(turn);
             setScores(scores);
             setAllHands(hands);
+
+            setStatus('PLAYING');
         });
 
         socket.on('update_puzzle_state', ({ board, turn, hands, scores }) => {
