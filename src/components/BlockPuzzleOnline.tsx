@@ -431,7 +431,6 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
     }
 
     return (
-        // ★ 画面全体を固定し、スクロールと伸縮を完全にロック
         <div className="game-container puzzle-mode" style={{
             touchAction: 'none',
             position: 'fixed',
@@ -445,13 +444,13 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             paddingBottom: 'max(env(safe-area-inset-bottom), 10px)'
         }}>
 
-            {/* ★ 1. 上部コントロールバー（横幅100%でしっかり左右に分ける） */}
+            {/* 1. 上部コントロールバー */}
             <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: '0 15px',
-                height: '40px', /* 高さを固定して下の要素を守る */
+                height: '40px',
                 flexShrink: 0,
                 width: '100%',
                 boxSizing: 'border-box'
@@ -471,10 +470,12 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 </button>
             </div>
 
-            {/* ★ 2. スコアボード */}
+            {/* 2. スコアボード */}
             <div className="scoreboard glass-panel puzzle-header-layout" style={{
                 margin: '5px 15px',
-                flexShrink: 0
+                flexShrink: 0,
+                position: 'relative',
+                zIndex: 10
             }}>
                 <div className="score-box left-align">
                     <span className="label" style={{ color: myPlayerColor }}>YOU</span>
@@ -497,61 +498,70 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 </div>
             </div>
 
-            {/* ★ 3. 盤面エリア（縦方向に絶対に伸びすぎないように制限） */}
+            {/* ★ 3. 盤面エリア（ズレと被りを完全に防ぐ構造に作り直し） */}
             <div style={{
                 flexGrow: 1,
-                minHeight: 0, /* ★ flexbox内で縮むことを許可する重要設定 */
+                minHeight: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 width: '100%',
-                padding: '5px 15px',
+                padding: '10px 15px', /* 盤面の上下に安全なスキマを確保 */
                 boxSizing: 'border-box'
             }}>
-                <div className="board-wrapper glass-panel" style={{
+                {/* 盤面を絶対に正方形に保つための「見えない枠」 */}
+                <div style={{
                     width: '100%',
-                    maxWidth: 'min(100%, 42vh)', /* ★画面の高さの42%以上には絶対にならない制限 */
+                    maxWidth: '400px',
                     maxHeight: '100%',
                     aspectRatio: '1 / 1',
-                    padding: '6px',
-                    margin: '0 auto',
-                    display: 'flex',
-                    flexDirection: 'column'
+                    position: 'relative' /* 中身をこの枠内にピッタリ貼り付ける指示 */
                 }}>
-                    <div className="board puzzle-board" ref={boardRef} style={{
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(${BOARD_SIZE}, 1fr)`,
-                        gridTemplateRows: `repeat(${BOARD_SIZE}, 1fr)`, /* 縦幅も均等にする */
-                        width: '100%',
-                        height: '100%',
-                        gap: '1px'
+                    {/* 背景パネル（見えない枠にピッタリ張り付く） */}
+                    <div className="board-wrapper glass-panel" style={{
+                        position: 'absolute',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        padding: '6px',
+                        boxSizing: 'border-box',
+                        display: 'flex'
                     }}>
-                        {board.map((row, r) => (
-                            row.map((cell, c) => {
-                                const cellKey = `${r}-${c}`;
-                                const isGhost = ghostCells.includes(cellKey);
-                                const isClearing = clearingCells.includes(cellKey);
-                                const isHighlightRow = highlightLines.rows.includes(r);
-                                const isHighlightCol = highlightLines.cols.includes(c);
+                        {/* 実際のマス目（背景パネルの中でさらにピッタリ広がる） */}
+                        <div className="board puzzle-board" ref={boardRef} style={{
+                            flexGrow: 1,
+                            display: 'grid',
+                            gridTemplateColumns: `repeat(${BOARD_SIZE}, 1fr)`,
+                            gridTemplateRows: `repeat(${BOARD_SIZE}, 1fr)`, /* 縦方向も均等に分割 */
+                            width: '100%',
+                            height: '100%',
+                            boxSizing: 'border-box'
+                        }}>
+                            {board.map((row, r) => (
+                                row.map((cell, c) => {
+                                    const cellKey = `${r}-${c}`;
+                                    const isGhost = ghostCells.includes(cellKey);
+                                    const isClearing = clearingCells.includes(cellKey);
+                                    const isHighlightRow = highlightLines.rows.includes(r);
+                                    const isHighlightCol = highlightLines.cols.includes(c);
 
-                                return (
-                                    <div
-                                        key={cellKey}
-                                        className={`cell puzzle-cell ${isGhost ? 'ghost-active' : ''} ${isClearing ? 'clearing' : ''}`}
-                                        style={cell ? { backgroundColor: getCellColor(cell) } : {}}
-                                    >
-                                        {isGhost && <div className="ghost-overlay" style={{ backgroundColor: myPlayerColor, opacity: 0.5 }} />}
-                                        {(isHighlightRow || isHighlightCol) && <div className="potential-clear-overlay" />}
-                                    </div>
-                                );
-                            })
-                        ))}
+                                    return (
+                                        <div
+                                            key={cellKey}
+                                            className={`cell puzzle-cell ${isGhost ? 'ghost-active' : ''} ${isClearing ? 'clearing' : ''}`}
+                                            style={cell ? { backgroundColor: getCellColor(cell) } : {}}
+                                        >
+                                            {isGhost && <div className="ghost-overlay" style={{ backgroundColor: myPlayerColor, opacity: 0.5 }} />}
+                                            {(isHighlightRow || isHighlightCol) && <div className="potential-clear-overlay" />}
+                                        </div>
+                                    );
+                                })
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* ★ 4. 相手の手札（透明な箱の中に閉じ込めて縮小することで形崩れを防ぐ） */}
-            <div style={{ width: '100%', opacity: 0.8, flexShrink: 0, height: '55px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {/* 4. 相手の手札 */}
+            <div style={{ width: '100%', opacity: 0.8, flexShrink: 0, height: '45px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ fontSize: '0.7rem', color: '#fff', marginBottom: '2px' }}>Opponent's Hand</div>
                 <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', alignItems: 'center', flexGrow: 1 }}>
                     {opponentHand.map((shape, i) => (
@@ -573,15 +583,15 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 </div>
             </div>
 
-            {/* ★ 5. 自分の手札（サイズと高さを固定して画面外へのはみ出しを防ぐ） */}
+            {/* ★ 5. 自分の手札（高さを100px→80pxにスリム化、ブロックも少し小さく調整） */}
             <div className="hand-container glass-panel" style={{
                 flexShrink: 0,
-                height: '100px',
+                height: '80px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 margin: '5px 15px 10px',
-                padding: '10px'
+                padding: '5px 10px'
             }}>
                 {myHand.map((shape, idx) => {
                     const isDragging = dragState?.shapeIdx === idx;
@@ -600,8 +610,8 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                                         <div key={`${r}-${c}`} className="mini-cell" style={{
                                             backgroundColor: val ? myPlayerColor : 'transparent',
                                             border: val ? '1px solid rgba(255,255,255,0.2)' : 'none',
-                                            width: '22px',
-                                            height: '22px'
+                                            width: '20px', /* ブロックサイズを微調整 */
+                                            height: '20px'
                                         }} />
                                     )))}
                                 </div>
