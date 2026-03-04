@@ -431,59 +431,50 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
     }
 
     return (
+        // ★ 画面全体にピタッと張り付かせて固定し、スクロールを完全に禁止する
         <div className="game-container puzzle-mode" style={{
             touchAction: 'none',
-            paddingTop: 'env(safe-area-inset-top, 20px)',
-            paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 10px)', /* 下部バーに被らないように余裕を持つ */
-            height: '100dvh', /* 画面ぴったりにする */
+            paddingTop: 'env(safe-area-inset-top, 10px)',
+            paddingBottom: 'env(safe-area-inset-bottom, 10px)',
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
             display: 'flex',
             flexDirection: 'column',
-            overflow: 'hidden', /* 画面全体のスクロールを防ぐ */
+            overflow: 'hidden',
             boxSizing: 'border-box'
         }}>
 
-            {/* 左上の退出ボタン */}
-            <button onClick={onBack} style={{
-                position: 'absolute',
-                top: 'calc(env(safe-area-inset-top, 20px) + 10px)',
-                left: '15px',
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 12px',
-                color: '#fff',
-                fontSize: '0.9rem',
-                fontWeight: 'bold',
-                zIndex: 100,
-                cursor: 'pointer',
-                backdropFilter: 'blur(5px)'
-            }}>
-                Leave
-            </button>
-
-            {/* 右上のミュートボタン */}
-            <button onClick={toggleMute} style={{
-                position: 'absolute',
-                top: 'calc(env(safe-area-inset-top, 20px) + 5px)',
-                right: '15px',
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: 'none',
-                borderRadius: '50%',
-                width: '40px',
-                height: '40px',
+            {/* ★ コントロールバー（絶対配置をやめて、最上部に安全に配置） */}
+            <div style={{
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.2rem',
-                zIndex: 100,
-                cursor: 'pointer',
-                backdropFilter: 'blur(5px)'
+                justifyContent: 'space-between',
+                padding: '5px 15px',
+                flexShrink: 0
             }}>
-                {isMuted ? '🔇' : '🔊'}
-            </button>
+                <button onClick={onBack} style={{
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    border: 'none', borderRadius: '8px', padding: '8px 12px',
+                    color: '#fff', fontSize: '0.9rem', fontWeight: 'bold', cursor: 'pointer', zIndex: 10
+                }}>
+                    Leave
+                </button>
+                <button onClick={toggleMute} style={{
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    border: 'none', borderRadius: '50%', width: '36px', height: '36px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1.2rem', cursor: 'pointer', zIndex: 10
+                }}>
+                    {isMuted ? '🔇' : '🔊'}
+                </button>
+            </div>
 
-            {/* スコアボード */}
-            <div className="scoreboard glass-panel puzzle-header-layout" style={{ marginTop: '55px', flexShrink: 0 }}>
+            {/* スコアボード（めり込みを防止するため position: relative で上書き） */}
+            <div className="scoreboard glass-panel puzzle-header-layout" style={{
+                margin: '0 15px 10px',
+                flexShrink: 0,
+                position: 'relative',
+                zIndex: 5
+            }}>
                 <div className="score-box left-align">
                     <span className="label" style={{ color: myPlayerColor }}>YOU</span>
                     <span className="puzzle-score">{scores[myColor as 'black' | 'white'] || 0}</span>
@@ -505,32 +496,32 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 </div>
             </div>
 
-            {/* ★ 盤面エリア（画面が狭い場合は、自動的に盤面が縮小するように設定） */}
+            {/* ★ 盤面エリア（はみ出し防止の最重要ポイント！） */}
             <div style={{
                 flexGrow: 1,
-                flexShrink: 1,
-                minHeight: 0, /* 重要: これがないと盤面が縮まない */
+                minHeight: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 width: '100%',
-                padding: '5px 15px'
+                padding: '0 15px'
             }}>
                 <div className="board-wrapper glass-panel" style={{
                     width: '100%',
-                    maxWidth: '400px',
-                    maxHeight: '100%', /* 画面をはみ出さない */
-                    aspectRatio: '1 / 1', /* 正方形を保つ */
-                    margin: '0 auto',
+                    /* ↓ スマホの縦画面の時は、高さの45%以上の幅にならないよう制限し、絶対にはみ出させない */
+                    maxWidth: 'min(400px, 45vh)',
+                    aspectRatio: '1 / 1',
                     padding: '6px',
                     display: 'flex',
                     flexDirection: 'column'
                 }}>
                     <div className="board puzzle-board" ref={boardRef} style={{
+                        display: 'grid',
                         gridTemplateColumns: `repeat(${BOARD_SIZE}, 1fr)`,
-                        gridTemplateRows: `repeat(${BOARD_SIZE}, 1fr)`, /* 縦方向も均等にする */
+                        gridTemplateRows: `repeat(${BOARD_SIZE}, 1fr)`,
                         width: '100%',
-                        flexGrow: 1
+                        height: '100%',
+                        overflow: 'hidden' /* 万が一マス目がはみ出してもカットする */
                     }}>
                         {board.map((row, r) => (
                             row.map((cell, c) => {
@@ -556,34 +547,35 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 </div>
             </div>
 
-            {/* 相手の手札 */}
-            <div style={{ width: '100%', maxWidth: '500px', margin: '0 auto', opacity: 0.8, flexShrink: 0 }}>
-                <div style={{ fontSize: '0.7rem', color: '#fff', marginBottom: '2px', textAlign: 'center' }}>Opponent's Hand</div>
-                <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+            {/* 相手の手札（表示のバグを防ぐため、scaleを使わずに直接10pxの極小ブロックとして描画） */}
+            <div style={{ width: '100%', margin: '5px auto', opacity: 0.8, flexShrink: 0 }}>
+                <div style={{ fontSize: '0.7rem', color: '#fff', marginBottom: '4px', textAlign: 'center' }}>Opponent's Hand</div>
+                <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', alignItems: 'center', minHeight: '20px' }}>
                     {opponentHand.map((shape, i) => (
-                        <div key={i} style={{ transform: 'scale(0.5)' }}>
+                        <div key={i}>
                             {shape ? (
-                                <div className="mini-grid" style={{ gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)` }}>
+                                <div className="mini-grid" style={{ gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)`, gap: '1px' }}>
                                     {shape.matrix.map((row, r) => row.map((val, c) => (
-                                        <div key={`${r}-${c}`} className="mini-cell"
-                                            style={{ backgroundColor: val ? getCellColor(myColor === 'black' ? 'white' : 'black') : 'transparent' }}
-                                        />
+                                        <div key={`${r}-${c}`} style={{
+                                            width: '10px', height: '10px',
+                                            backgroundColor: val ? getCellColor(myColor === 'black' ? 'white' : 'black') : 'transparent'
+                                        }} />
                                     )))}
                                 </div>
-                            ) : <div style={{ width: 40, height: 40 }} />}
+                            ) : <div style={{ width: '20px', height: '20px' }} />}
                         </div>
                     ))}
                 </div>
             </div>
 
-            {/* ★ 自分の手札（ここは絶対に潰れないように設定） */}
+            {/* 自分の手札（サイズと高さを固定して潰れないように保護） */}
             <div className="hand-container glass-panel" style={{
-                flexShrink: 0, /* 重要: 画面が狭くても絶対に潰れない */
-                minHeight: '120px',
+                flexShrink: 0,
+                height: '110px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                margin: '5px 15px 10px', /* 下部に少し余裕を持たせる */
+                margin: '5px 15px 10px',
                 padding: '10px'
             }}>
                 {myHand.map((shape, idx) => {
@@ -602,8 +594,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                                     {shape.matrix.map((row, r) => row.map((val, c) => (
                                         <div key={`${r}-${c}`} className="mini-cell" style={{
                                             backgroundColor: val ? myPlayerColor : 'transparent',
-                                            border: val ? 'var(--cell-border)' : 'none',
-                                            /* 手札のブロックサイズを固定して見えなくなるのを防ぐ */
+                                            border: val ? '1px solid rgba(255,255,255,0.2)' : 'none',
                                             width: '24px',
                                             height: '24px'
                                         }} />
@@ -626,7 +617,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                             <div key={`${r}-${c}`} className="mini-cell" style={{
                                 backgroundColor: val ? myPlayerColor : 'transparent',
                                 width: `${dragState.boardCellSize}px`, height: `${dragState.boardCellSize}px`,
-                                border: val ? 'var(--cell-border)' : 'none'
+                                border: val ? '1px solid rgba(255,255,255,0.2)' : 'none'
                             }} />
                         )))}
                     </div>
