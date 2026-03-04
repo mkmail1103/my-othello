@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { THEME_PALETTES, type ShapeDef, type ColorKey } from '../constants.js';
-import './BlockPuzzleGame.css';
+import './BlockPuzzleGame.css'; // ← ソロモードのCSSをそのまま使います！
 
 interface BlockPuzzleOnlineProps {
     onBack: () => void;
@@ -10,18 +10,21 @@ interface BlockPuzzleOnlineProps {
 
 type GameStatus = 'LOBBY' | 'WAITING' | 'PLAYING' | 'FINISHED' | 'ABORTED';
 
+// ソロモードと同じ操作感にするための設定
+const DRAG_SENSITIVITY = 1.5;
+const TOUCH_OFFSET_Y = 100;
+const BOARD_SIZE = 10; // マルチプレイは10x10
+
 const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) => {
-    // Lazy initialization for socket
     const [socket] = useState(() => io());
     const [status, setStatus] = useState<GameStatus>('LOBBY');
     const [roomId, setRoomId] = useState('');
     const [playerName, setPlayerName] = useState('');
     const [myColor, setMyColor] = useState<string>('');
-    const [board, setBoard] = useState<(string | null)[][]>(Array(10).fill(null).map(() => Array(10).fill(null)));
+    const [board, setBoard] = useState<(string | null)[][]>(Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null)));
     const [turn, setTurn] = useState<string>('');
     const [allHands, setAllHands] = useState<{ black: ShapeDef[], white: ShapeDef[] } | null>(null);
 
-    // Derived state for hands
     const myHand = useMemo(() => {
         if (!allHands || !myColor) return [];
         return allHands[myColor as 'black' | 'white'] || [];
@@ -37,16 +40,18 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
     const [winReason, setWinReason] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState('');
 
-    // Dragging state
-    const [draggingShape, setDraggingShape] = useState<{ shape: ShapeDef, index: number } | null>(null);
-    const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
-    const boardRef = useRef<HTMLDivElement>(null);
+    // ドラッグ状態管理（ソロモードから移植）
+    const [dragState, setDragState] = useState<{
+        shapeIdx: number; startX: number; startY: number; currentX: number; currentY: number;
+        startPointerX: number; startPointerY: number; hoverRow: number | null; hoverCol: number | null; boardCellSize: number;
+    } | null>(null);
 
-    // Theme colors
+    const boardRef = useRef<HTMLDivElement>(null);
+    const boardMetrics = useRef<{ left: number, top: number, width: number, height: number, cellSize: number } | null>(null);
+
     const colors = useMemo(() => THEME_PALETTES[theme as keyof typeof THEME_PALETTES] || THEME_PALETTES['neon'], [theme]);
 
     useEffect(() => {
-        // 追加: 万が一通信が切れていた場合に再接続させる
         socket.connect();
 
         socket.on('connect', () => {
@@ -69,7 +74,6 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             setTurn(turn);
             setScores(scores);
             setAllHands(hands);
-
             setStatus('PLAYING');
         });
 
@@ -110,13 +114,6 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
         };
     }, [socket]);
 
-    useEffect(() => {
-        if (allHands && myColor) {
-            // Hand derivation is now handled by useMemo
-        }
-    }, [allHands, myColor]);
-
-
     const handleJoin = () => {
         if (!roomId || !playerName) {
             setErrorMsg('Please enter Room ID and Name');
@@ -125,7 +122,6 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
         socket.emit('join_puzzle_room', { roomId, playerName });
     };
 
-    // Helper functions
     const canPlace = useCallback((currentGrid: (string | null)[][], matrix: number[][], r: number, c: number) => {
         const rows = matrix.length;
         const cols = matrix[0].length;
@@ -134,7 +130,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 if (matrix[i][j] === 1) {
                     const nr = r + i;
                     const nc = c + j;
-                    if (nr < 0 || nr >= 10 || nc < 0 || nc >= 10) return false;
+                    if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE) return false;
                     if (currentGrid[nr][nc] !== null) return false;
                 }
             }
@@ -148,66 +144,113 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
         }
     }, [board, canPlace, roomId, socket]);
 
-    // Drag Logic
-    const handleTouchStart = (e: React.TouchEvent | React.MouseEvent, shape: ShapeDef, index: number) => {
-        if (status !== 'PLAYING' || turn !== myColor) return;
+    // --- ここからソロモードと同じ操作性のドラッグロジック ---
+    const handlePointerDown = (e: React.PointerEvent, idx: number) => {
+        if (status !== 'PLAYING' || turn !== myColor || !myHand[idx]) return;
 
-        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
-        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+        const target = e.currentTarget as HTMLElement;
+        target.setPointerCapture(e.pointerId);
 
-        setDraggingShape({ shape, index });
-        setDragPos({ x: clientX, y: clientY });
-    };
-
-    const handleTouchMove = useCallback((e: TouchEvent | MouseEvent) => {
-        if (!draggingShape) return;
-        const clientX = 'touches' in e ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
-        const clientY = 'touches' in e ? (e as TouchEvent).touches[0].clientY : (e as MouseEvent).clientY;
-        setDragPos({ x: clientX, y: clientY });
-    }, [draggingShape]);
-
-    const handleTouchEnd = useCallback(() => {
-        if (!draggingShape) return;
-
+        let currentCellSize = 30; // デフォルト値
         if (boardRef.current) {
             const rect = boardRef.current.getBoundingClientRect();
-            const x = dragPos.x - rect.left;
-            const y = dragPos.y - rect.top;
-
-            const cellSize = rect.width / 10;
-
-            const shapeWidth = draggingShape.shape.matrix[0].length * cellSize;
-            const shapeHeight = draggingShape.shape.matrix.length * cellSize;
-
-            const targetR = Math.round((y - shapeHeight / 2) / cellSize);
-            const targetC = Math.round((x - shapeWidth / 2) / cellSize);
-
-            attemptPlace(targetR, targetC, draggingShape.shape, draggingShape.index);
+            currentCellSize = rect.width / BOARD_SIZE;
+            boardMetrics.current = { left: rect.left, top: rect.top, width: rect.width, height: rect.height, cellSize: currentCellSize };
         }
 
-        setDraggingShape(null);
-    }, [draggingShape, dragPos, attemptPlace]);
+        setDragState({
+            shapeIdx: idx,
+            startX: e.clientX, startY: e.clientY,
+            startPointerX: e.clientX, startPointerY: e.clientY,
+            currentX: e.clientX, currentY: e.clientY,
+            hoverRow: null, hoverCol: null,
+            boardCellSize: currentCellSize
+        });
+    };
 
-    useEffect(() => {
-        if (draggingShape) {
-            window.addEventListener('touchmove', handleTouchMove, { passive: false });
-            window.addEventListener('touchend', handleTouchEnd);
-            window.addEventListener('mousemove', handleTouchMove);
-            window.addEventListener('mouseup', handleTouchEnd);
+    const handlePointerMove = (e: React.PointerEvent) => {
+        if (!dragState) return;
+        e.preventDefault();
+        const { shapeIdx, startX, startY, startPointerX, startPointerY } = dragState;
+        const shape = myHand[shapeIdx];
+
+        const deltaX = (e.clientX - startPointerX) * DRAG_SENSITIVITY;
+        const deltaY = (e.clientY - startPointerY) * DRAG_SENSITIVITY;
+        const currentX = startX + deltaX;
+        const currentY = startY + deltaY;
+
+        let bestRow: number | null = null;
+        let bestCol: number | null = null;
+
+        if (shape && boardMetrics.current) {
+            const { left, top, cellSize } = boardMetrics.current;
+            const shapeWidthPx = shape.matrix[0].length * cellSize;
+            const shapeHeightPx = shape.matrix.length * cellSize;
+            const visualTopLeftX = currentX - (shapeWidthPx / 2);
+            const visualTopLeftY = currentY - TOUCH_OFFSET_Y - (shapeHeightPx / 2);
+
+            let minDistance = Infinity;
+            const SNAP_THRESHOLD = cellSize * 2.5;
+
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (canPlace(board, shape.matrix, r, c)) {
+                        const targetX = left + (c * cellSize);
+                        const targetY = top + (r * cellSize);
+                        const dist = Math.hypot(targetX - visualTopLeftX, targetY - visualTopLeftY);
+
+                        if (dist < minDistance && dist < SNAP_THRESHOLD) {
+                            minDistance = dist;
+                            bestRow = r;
+                            bestCol = c;
+                        }
+                    }
+                }
+            }
         }
-        return () => {
-            window.removeEventListener('touchmove', handleTouchMove);
-            window.removeEventListener('touchend', handleTouchEnd);
-            window.removeEventListener('mousemove', handleTouchMove);
-            window.removeEventListener('mouseup', handleTouchEnd);
-        };
-    }, [draggingShape, handleTouchMove, handleTouchEnd]);
+        setDragState(prev => prev ? { ...prev, currentX, currentY, hoverRow: bestRow, hoverCol: bestCol } : null);
+    };
 
-    // Render Helpers
+    const handlePointerUp = (e: React.PointerEvent) => {
+        if (!dragState) return;
+        const { shapeIdx, hoverRow, hoverCol } = dragState;
+        const shape = myHand[shapeIdx];
+
+        const target = e.currentTarget as HTMLElement;
+        target.releasePointerCapture(e.pointerId);
+
+        if (shape && hoverRow !== null && hoverCol !== null) {
+            attemptPlace(hoverRow, hoverCol, shape, shapeIdx);
+        }
+        setDragState(null);
+    };
+
+    // どこに落ちるかのプレビュー（ゴースト）計算
+    const ghostCells = useMemo(() => {
+        if (!dragState || dragState.hoverRow === null || dragState.hoverCol === null) return [];
+        const shape = myHand[dragState.shapeIdx];
+        if (!shape) return [];
+        const { hoverRow, hoverCol } = dragState;
+        if (canPlace(board, shape.matrix, hoverRow, hoverCol)) {
+            const cells = [];
+            for (let i = 0; i < shape.matrix.length; i++) {
+                for (let j = 0; j < shape.matrix[0].length; j++) {
+                    if (shape.matrix[i][j] === 1) {
+                        cells.push(`${hoverRow + i}-${hoverCol + j}`);
+                    }
+                }
+            }
+            return cells;
+        }
+        return [];
+    }, [dragState, board, myHand, canPlace]);
+    // --- ドラッグロジックここまで ---
+
+    // ★白・黒の代わりに、見やすい対戦カラーにする設定
     const getCellColor = (val: string | null) => {
         if (!val) return 'transparent';
-        if (val === 'black') return '#333'; // P1 Color
-        if (val === 'white') return '#eee'; // P2 Color
+        if (val === 'black') return '#4a90e2'; // P1: ブルー（青）
+        if (val === 'white') return '#e94b3c'; // P2: レッド（赤）
         if (colors[val as ColorKey]) return colors[val as ColorKey];
         return val;
     };
@@ -219,19 +262,11 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                     <h1 className="title neon-text">Block Puzzle PvP</h1>
                     <div className="input-group">
                         <label>Room ID</label>
-                        <input
-                            value={roomId}
-                            onChange={e => setRoomId(e.target.value)}
-                            placeholder="Enter Room ID"
-                        />
+                        <input value={roomId} onChange={e => setRoomId(e.target.value)} placeholder="Enter Room ID" />
                     </div>
                     <div className="input-group" style={{ marginTop: '1rem' }}>
                         <label>Your Name</label>
-                        <input
-                            value={playerName}
-                            onChange={e => setPlayerName(e.target.value)}
-                            placeholder="Enter Name"
-                        />
+                        <input value={playerName} onChange={e => setPlayerName(e.target.value)} placeholder="Enter Name" />
                     </div>
                     {errorMsg && <div className="error-msg">{errorMsg}</div>}
                     <button onClick={handleJoin} className="join-btn neon-btn" style={{ marginTop: '2rem' }}>
@@ -246,15 +281,15 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
     }
 
     return (
-        <div className="game-container">
+        <div className="game-container puzzle-mode" style={{ touchAction: 'none' }}>
             <div className="scoreboard glass-panel puzzle-header-layout">
                 <div className="score-box left-align">
-                    <span className="label">YOU ({myColor})</span>
+                    <span className="label" style={{ color: getCellColor(myColor) }}>YOU</span>
                     <span className="puzzle-score">{scores[myColor as 'black' | 'white'] || 0}</span>
                 </div>
                 <div className="combo-center-area">
                     {status === 'WAITING' ? (
-                        <span className="neon-text" style={{ fontSize: '0.8rem' }}>WAITING FOR OPPONENT...</span>
+                        <span className="neon-text" style={{ fontSize: '0.8rem' }}>WAITING...</span>
                     ) : (
                         <span className="neon-text" style={{ fontSize: '1rem' }}>
                             {turn === myColor ? "YOUR TURN" : "OPPONENT'S TURN"}
@@ -263,39 +298,43 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 </div>
                 <div className="score-box right-align">
                     <div style={{ textAlign: 'right' }}>
-                        <span className="label">OPPONENT</span>
+                        <span className="label" style={{ color: getCellColor(myColor === 'black' ? 'white' : 'black') }}>OPPONENT</span>
                         <div className="puzzle-score">{scores[myColor === 'black' ? 'white' : 'black'] || 0}</div>
                     </div>
                 </div>
             </div>
 
             <div className="board-wrapper glass-panel">
-                <div className="board board-10" ref={boardRef}>
+                <div className="board puzzle-board" ref={boardRef} style={{ gridTemplateColumns: `repeat(${BOARD_SIZE}, 1fr)` }}>
                     {board.map((row, r) => (
-                        row.map((cell, c) => (
-                            <div
-                                key={`${r}-${c}`}
-                                className="cell"
-                                style={{ backgroundColor: getCellColor(cell) }}
-                            />
-                        ))
+                        row.map((cell, c) => {
+                            const cellKey = `${r}-${c}`;
+                            const isGhost = ghostCells.includes(cellKey);
+                            return (
+                                <div
+                                    key={cellKey}
+                                    className={`cell puzzle-cell ${isGhost ? 'ghost-active' : ''}`}
+                                    style={cell ? { backgroundColor: getCellColor(cell) } : {}}
+                                >
+                                    {isGhost && <div className="ghost-overlay" style={{ backgroundColor: getCellColor(myColor), opacity: 0.5 }} />}
+                                </div>
+                            );
+                        })
                     ))}
                 </div>
             </div>
 
-            {/* Opponent Hand (Small View) */}
-            <div style={{ width: '100%', maxWidth: '500px', marginBottom: '10px', opacity: 0.6 }}>
-                <div style={{ fontSize: '0.8rem', color: '#fff', marginBottom: '5px' }}>Opponent's Hand</div>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            {/* 相手の手札（相手の色で表示） */}
+            <div style={{ width: '100%', maxWidth: '500px', marginBottom: '10px', opacity: 0.8 }}>
+                <div style={{ fontSize: '0.7rem', color: '#fff', marginBottom: '5px', textAlign: 'center' }}>Opponent's Hand</div>
+                <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
                     {opponentHand.map((shape, i) => (
-                        <div key={i} style={{ transform: 'scale(0.6)' }}>
+                        <div key={i} style={{ transform: 'scale(0.5)' }}>
                             {shape ? (
-                                <div className="mini-grid" style={{
-                                    gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)`
-                                }}>
+                                <div className="mini-grid" style={{ gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)` }}>
                                     {shape.matrix.map((row, r) => row.map((val, c) => (
                                         <div key={`${r}-${c}`} className="mini-cell"
-                                            style={{ backgroundColor: val ? '#888' : 'transparent' }}
+                                            style={{ backgroundColor: val ? getCellColor(myColor === 'black' ? 'white' : 'black') : 'transparent' }}
                                         />
                                     )))}
                                 </div>
@@ -305,57 +344,54 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 </div>
             </div>
 
-            {/* My Hand */}
-            <div className="hand-container glass-panel">
-                {myHand.map((shape, i) => (
-                    <div
-                        key={i}
-                        className="shape-item"
-                        onMouseDown={(e) => shape && handleTouchStart(e, shape, i)}
-                        onTouchStart={(e) => shape && handleTouchStart(e, shape, i)}
-                        style={{ opacity: draggingShape?.index === i ? 0 : 1 }}
-                    >
-                        {shape && (
-                            <div className="mini-grid" style={{
-                                gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)`
-                            }}>
-                                {shape.matrix.map((row, r) => row.map((val, c) => (
-                                    <div key={`${r}-${c}`} className="mini-cell"
-                                        style={{ backgroundColor: val ? colors[shape.colorKey] : 'transparent' }}
-                                    />
-                                )))}
-                            </div>
-                        )}
-                    </div>
-                ))}
+            {/* 自分の手札（ドラッグ操作可能） */}
+            <div className="hand-container">
+                {myHand.map((shape, idx) => {
+                    const isDragging = dragState?.shapeIdx === idx;
+                    const color = shape ? colors[shape.colorKey] : 'transparent';
+                    return (
+                        <div
+                            key={idx}
+                            className={`shape-item ${!shape ? 'used' : ''} ${isDragging ? 'invisible' : ''}`}
+                            onPointerDown={(e) => handlePointerDown(e, idx)}
+                            onPointerMove={handlePointerMove}
+                            onPointerUp={handlePointerUp}
+                            onPointerCancel={handlePointerUp}
+                        >
+                            {shape && (
+                                <div className="mini-grid" style={{ gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)` }}>
+                                    {shape.matrix.map((row, r) => row.map((val, c) => (
+                                        <div key={`${r}-${c}`} className="mini-cell" style={{
+                                            backgroundColor: val ? color : 'transparent',
+                                            border: val ? 'var(--cell-border)' : 'none'
+                                        }} />
+                                    )))}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
 
-            {/* Drag Preview */}
-            {draggingShape && (
-                <div
-                    className="drag-preview"
-                    style={{
-                        left: dragPos.x,
-                        top: dragPos.y,
-                        transform: 'translate(-50%, -50%)' // Center on finger
-                    }}
-                >
+            {/* ドラッグ中のプレビュー（指の上にずらして表示） */}
+            {dragState && myHand[dragState.shapeIdx] && (
+                <div className="drag-preview" style={{ left: dragState.currentX, top: dragState.currentY - TOUCH_OFFSET_Y, transform: 'translate(-50%, -50%)' }}>
                     <div className="mini-grid" style={{
-                        gridTemplateColumns: `repeat(${draggingShape.shape.matrix[0].length}, 1fr)`
+                        gridTemplateColumns: `repeat(${myHand[dragState.shapeIdx]!.matrix[0].length}, 1fr)`,
+                        width: `${myHand[dragState.shapeIdx]!.matrix[0].length * dragState.boardCellSize}px`,
                     }}>
-                        {draggingShape.shape.matrix.map((row, r) => row.map((val, c) => (
-                            <div key={`${r}-${c}`} className="mini-cell"
-                                style={{
-                                    backgroundColor: val ? colors[draggingShape.shape.colorKey] : 'transparent',
-                                    width: '30px', height: '30px' // Slightly larger when dragging
-                                }}
-                            />
+                        {myHand[dragState.shapeIdx]!.matrix.map((row, r) => row.map((val, c) => (
+                            <div key={`${r}-${c}`} className="mini-cell" style={{
+                                backgroundColor: val ? colors[myHand[dragState.shapeIdx]!.colorKey] : 'transparent',
+                                width: `${dragState.boardCellSize}px`, height: `${dragState.boardCellSize}px`,
+                                border: val ? 'var(--cell-border)' : 'none'
+                            }} />
                         )))}
                     </div>
                 </div>
             )}
 
-            {/* Result Overlay */}
+            {/* リザルト画面 */}
             {(status === 'FINISHED' || status === 'ABORTED') && (
                 <div className="result-overlay">
                     <div className={`result-card ${winner === myColor ? 'win' : 'lose'}`}>
@@ -366,7 +402,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                         <div style={{ fontSize: '1.5rem', margin: '1rem 0' }}>
                             {scores.black} - {scores.white}
                         </div>
-                        <button onClick={onBack} className="rematch-btn">
+                        <button onClick={onBack} className="rematch-btn neon-btn">
                             Back to Menu
                         </button>
                     </div>
