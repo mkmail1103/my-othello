@@ -431,9 +431,58 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
     }
 
     return (
-        // ★ iPhoneでの見切れ（ノッチ・Dynamic Island）対策で上部にセーフエリアの余白を設けています
-        <div className="game-container puzzle-mode" style={{ touchAction: 'none', paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}>
-            <div className="scoreboard glass-panel puzzle-header-layout">
+        <div className="game-container puzzle-mode" style={{
+            touchAction: 'none',
+            paddingTop: 'env(safe-area-inset-top, 20px)',
+            paddingBottom: 'env(safe-area-inset-bottom, 20px)',
+            height: '100dvh', /* スマホブラウザの表示領域にピッタリ合わせる */
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden' /* スクロールして画面がブレるのを防ぐ */
+        }}>
+
+            {/* ★ 左上の退出ボタン（ヘッダーから独立させて浮かす） */}
+            <button onClick={onBack} style={{
+                position: 'absolute',
+                top: 'calc(env(safe-area-inset-top, 20px) + 10px)',
+                left: '15px',
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                color: '#fff',
+                fontSize: '0.9rem',
+                fontWeight: 'bold',
+                zIndex: 100,
+                cursor: 'pointer',
+                backdropFilter: 'blur(5px)'
+            }}>
+                Leave
+            </button>
+
+            {/* ★ 右上のミュートボタン（めり込まないように浮かす） */}
+            <button onClick={toggleMute} style={{
+                position: 'absolute',
+                top: 'calc(env(safe-area-inset-top, 20px) + 5px)',
+                right: '15px',
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.2rem',
+                zIndex: 100,
+                cursor: 'pointer',
+                backdropFilter: 'blur(5px)'
+            }}>
+                {isMuted ? '🔇' : '🔊'}
+            </button>
+
+            {/* スコアボード（余計なボタンが消えてスッキリします） */}
+            <div className="scoreboard glass-panel puzzle-header-layout" style={{ marginTop: '55px', flexShrink: 0 }}>
                 <div className="score-box left-align">
                     <span className="label" style={{ color: myPlayerColor }}>YOU</span>
                     <span className="puzzle-score">{scores[myColor as 'black' | 'white'] || 0}</span>
@@ -447,11 +496,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                         </span>
                     )}
                 </div>
-                {/* ★ 右上にミュートボタンを自然に配置 */}
-                <div className="score-box right-align" style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-end' }}>
-                    <button onClick={toggleMute} className="sound-btn" style={{ background: 'transparent', border: 'none', fontSize: '1.2rem', padding: 0, cursor: 'pointer' }}>
-                        {isMuted ? '🔇' : '🔊'}
-                    </button>
+                <div className="score-box right-align">
                     <div style={{ textAlign: 'right' }}>
                         <span className="label" style={{ color: getCellColor(myColor === 'black' ? 'white' : 'black') }}>OPPONENT</span>
                         <div className="puzzle-score">{scores[myColor === 'black' ? 'white' : 'black'] || 0}</div>
@@ -459,7 +504,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 </div>
             </div>
 
-            <div className="board-wrapper glass-panel">
+            <div className="board-wrapper glass-panel" style={{ flexShrink: 0, margin: '10px auto' }}>
                 <div className="board puzzle-board" ref={boardRef} style={{ gridTemplateColumns: `repeat(${BOARD_SIZE}, 1fr)` }}>
                     {board.map((row, r) => (
                         row.map((cell, c) => {
@@ -476,7 +521,6 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                                     style={cell ? { backgroundColor: getCellColor(cell) } : {}}
                                 >
                                     {isGhost && <div className="ghost-overlay" style={{ backgroundColor: myPlayerColor, opacity: 0.5 }} />}
-                                    {/* ★ 置いたら消える列がホバー時に白く光るエフェクト */}
                                     {(isHighlightRow || isHighlightCol) && <div className="potential-clear-overlay" />}
                                 </div>
                             );
@@ -486,8 +530,8 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             </div>
 
             {/* 相手の手札 */}
-            <div style={{ width: '100%', maxWidth: '500px', marginBottom: '10px', opacity: 0.8 }}>
-                <div style={{ fontSize: '0.7rem', color: '#fff', marginBottom: '5px', textAlign: 'center' }}>Opponent's Hand</div>
+            <div style={{ width: '100%', maxWidth: '500px', margin: '0 auto', opacity: 0.8, flexShrink: 0 }}>
+                <div style={{ fontSize: '0.7rem', color: '#fff', marginBottom: '2px', textAlign: 'center' }}>Opponent's Hand</div>
                 <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
                     {opponentHand.map((shape, i) => (
                         <div key={i} style={{ transform: 'scale(0.5)' }}>
@@ -505,8 +549,8 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 </div>
             </div>
 
-            {/* 自分の手札（★色がmyPlayerColorに統一されました） */}
-            <div className="hand-container">
+            {/* 自分の手札（★前回の修正により、最初から赤か青のカラーで表示されます） */}
+            <div className="hand-container" style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingBottom: '10px' }}>
                 {myHand.map((shape, idx) => {
                     const isDragging = dragState?.shapeIdx === idx;
                     return (
@@ -533,7 +577,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 })}
             </div>
 
-            {/* ドラッグ中のプレビュー（★色統一済み） */}
+            {/* ドラッグ中のプレビュー */}
             {dragState && myHand[dragState.shapeIdx] && (
                 <div className="drag-preview" style={{ left: dragState.currentX, top: dragState.currentY - TOUCH_OFFSET_Y, transform: 'translate(-50%, -50%)' }}>
                     <div className="mini-grid" style={{
@@ -568,10 +612,6 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                     </div>
                 </div>
             )}
-
-            <div className="controls">
-                <button onClick={onBack} className="leave-btn">Leave Game</button>
-            </div>
         </div>
     );
 };
