@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+ï»¿import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { THEME_PALETTES, type ShapeDef, type ColorKey } from '../constants.js';
-import './BlockPuzzleGame.css'; // © ƒ\ƒƒ‚[ƒh‚ÌCSS‚ğ‚»‚Ì‚Ü‚Üg‚¢‚Ü‚·I
+import './BlockPuzzleGame.css';
 
 interface BlockPuzzleOnlineProps {
     onBack: () => void;
@@ -10,10 +10,10 @@ interface BlockPuzzleOnlineProps {
 
 type GameStatus = 'LOBBY' | 'WAITING' | 'PLAYING' | 'FINISHED' | 'ABORTED';
 
-// ƒ\ƒƒ‚[ƒh‚Æ“¯‚¶‘€ìŠ´‚É‚·‚é‚½‚ß‚Ìİ’è
 const DRAG_SENSITIVITY = 1.5;
 const TOUCH_OFFSET_Y = 100;
-const BOARD_SIZE = 10; // ƒ}ƒ‹ƒ`ƒvƒŒƒC‚Í10x10
+const BOARD_SIZE = 10;
+const HAPTIC_DURATION = 15;
 
 const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) => {
     const [socket] = useState(() => io());
@@ -40,7 +40,16 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
     const [winReason, setWinReason] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState('');
 
-    // ƒhƒ‰ƒbƒOó‘ÔŠÇ—iƒ\ƒƒ‚[ƒh‚©‚çˆÚAj
+    // --- ã‚¨ãƒ•ã‚§ã‚¯ãƒˆï¼†ã‚µã‚¦ãƒ³ãƒ‰ç”¨ã‚¹ãƒ†ãƒ¼ãƒˆ ---
+    const [clearingCells, setClearingCells] = useState<string[]>([]);
+    const [highlightLines, setHighlightLines] = useState<{ rows: number[], cols: number[] }>({ rows: [], cols: [] });
+    const [isMuted, setIsMuted] = useState(false);
+
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const audioBuffersRef = useRef<{ [key: string]: AudioBuffer }>({});
+    const bgmSourceRef = useRef<AudioBufferSourceNode | null>(null);
+    const prevScoresRef = useRef<{ black: number, white: number }>({ black: 0, white: 0 });
+
     const [dragState, setDragState] = useState<{
         shapeIdx: number; startX: number; startY: number; currentX: number; currentY: number;
         startPointerX: number; startPointerY: number; hoverRow: number | null; hoverCol: number | null; boardCellSize: number;
@@ -51,13 +60,117 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
 
     const colors = useMemo(() => THEME_PALETTES[theme as keyof typeof THEME_PALETTES] || THEME_PALETTES['neon'], [theme]);
 
+    // â˜…ç™½ãƒ»é»’ã®ä»£ã‚ã‚Šã«ã€è¦‹ã‚„ã™ã„å¯¾æˆ¦ã‚«ãƒ©ãƒ¼ã«ã™ã‚‹è¨­å®š
+    const getCellColor = useCallback((val: string | null) => {
+        if (!val) return 'transparent';
+        if (val === 'black') return '#4a90e2'; // P1: ãƒ–ãƒ«ãƒ¼ï¼ˆé’ï¼‰
+        if (val === 'white') return '#e94b3c'; // P2: ãƒ¬ãƒƒãƒ‰ï¼ˆèµ¤ï¼‰
+        if (colors[val as ColorKey]) return colors[val as ColorKey];
+        return val;
+    }, [colors]);
+
+    const myPlayerColor = useMemo(() => getCellColor(myColor), [getCellColor, myColor]);
+
+    // --- ã‚µã‚¦ãƒ³ãƒ‰åˆæœŸåŒ– ---
+    useEffect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
+        if (AudioContextClass) {
+            audioContextRef.current = new AudioContextClass();
+        }
+
+        const loadSound = async (name: string) => {
+            if (!audioContextRef.current) return;
+            try {
+                const response = await fetch(`/sounds/${name}.mp3`);
+                const arrayBuffer = await response.arrayBuffer();
+                const decodedBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+                audioBuffersRef.current[name] = decodedBuffer;
+            } catch (error) {
+                console.error(`Failed to load sound: ${name}`, error);
+            }
+        };['pickup', 'place', 'clear', 'gameover', 'bgm'].forEach(name => loadSound(name));
+
+        return () => {
+            if (audioContextRef.current) audioContextRef.current.close();
+        };
+    }, []);
+
+    const playSound = useCallback((type: 'pickup' | 'place' | 'clear' | 'gameover') => {
+        if (isMuted || !audioContextRef.current || !audioBuffersRef.current[type]) return;
+        const ctx = audioContextRef.current;
+        if (ctx.state === 'suspended') ctx.resume();
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffersRef.current[type];
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = type === 'clear' ? 0.6 : 0.4; // ã‚¯ãƒªã‚¢éŸ³ã¯å°‘ã—å¤§ãã‚ã«
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        source.start(0);
+    }, [isMuted]);
+
+    // BGMåˆ¶å¾¡
+    useEffect(() => {
+        const startBGM = () => {
+            if (isMuted || !audioContextRef.current || !audioBuffersRef.current['bgm']) return;
+            if (bgmSourceRef.current) return;
+            const ctx = audioContextRef.current;
+            const source = ctx.createBufferSource();
+            source.buffer = audioBuffersRef.current['bgm'];
+            source.loop = true;
+            const gainNode = ctx.createGain();
+            gainNode.gain.value = 0.25; // BGMéŸ³é‡
+            source.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            source.start(0);
+            bgmSourceRef.current = source;
+        };
+
+        const stopBGM = () => {
+            if (bgmSourceRef.current) {
+                try { bgmSourceRef.current.stop(); } catch { /* ignore */ }
+                bgmSourceRef.current = null;
+            }
+        };
+
+        if (status === 'PLAYING' && !isMuted) {
+            startBGM();
+        } else {
+            stopBGM();
+        }
+        return () => stopBGM();
+    }, [isMuted, status]);
+
+    const toggleMute = () => { setIsMuted(prev => !prev); };
+
+    // ã‚²ãƒ¼ãƒ ã‚ªãƒ¼ãƒãƒ¼éŸ³
+    useEffect(() => {
+        if (status === 'FINISHED') playSound('gameover');
+    }, [status, playSound]);
+
+    // ç›¸æ‰‹ãŒç½®ã„ãŸ/æ¶ˆã—ãŸæ™‚ã®éŸ³ã®æ¤œçŸ¥
+    useEffect(() => {
+        if (status === 'PLAYING') {
+            const oppColor = myColor === 'black' ? 'white' : 'black';
+            const oppPrev = prevScoresRef.current[oppColor as 'black' | 'white'] || 0;
+            const oppCurr = scores[oppColor as 'black' | 'white'] || 0;
+
+            if (oppCurr > oppPrev) {
+                const diff = oppCurr - oppPrev;
+                if (diff >= 100) {
+                    playSound('clear'); // ãƒ©ã‚¤ãƒ³ã‚’æ¶ˆã—ãŸã‚¹ã‚³ã‚¢ãªã‚‰ã‚¯ãƒªã‚¢éŸ³
+                } else {
+                    playSound('place'); // ãƒ–ãƒ­ãƒƒã‚¯ã‚’ç½®ã„ãŸã ã‘ãªã‚‰é…ç½®éŸ³
+                }
+            }
+        }
+        prevScoresRef.current = scores;
+    }, [scores, status, myColor, playSound]);
+
+
+    // --- ã‚½ã‚±ãƒƒãƒˆé€šä¿¡ ---
     useEffect(() => {
         socket.connect();
-
-        socket.on('connect', () => {
-            console.log('Connected to server');
-        });
-
         socket.on('init_puzzle_game', ({ color, roomId }) => {
             setMyColor(color);
             setRoomId(roomId);
@@ -65,9 +178,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             setErrorMsg('');
         });
 
-        socket.on('waiting_opponent', () => {
-            setStatus('WAITING');
-        });
+        socket.on('waiting_opponent', () => setStatus('WAITING'));
 
         socket.on('puzzle_start', ({ board, turn, hands, scores }) => {
             setBoard(board);
@@ -97,12 +208,9 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             setErrorMsg('Opponent disconnected.');
         });
 
-        socket.on('error_message', (msg) => {
-            setErrorMsg(msg);
-        });
+        socket.on('error_message', (msg) => setErrorMsg(msg));
 
         return () => {
-            socket.off('connect');
             socket.off('init_puzzle_game');
             socket.off('waiting_opponent');
             socket.off('puzzle_start');
@@ -140,18 +248,54 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
 
     const attemptPlace = useCallback((r: number, c: number, shape: ShapeDef, index: number) => {
         if (canPlace(board, shape.matrix, r, c)) {
+            // ãƒ­ãƒ¼ã‚«ãƒ«ã§ã‚¯ãƒªã‚¢åˆ¤å®šã—ã¦ã‚¨ãƒ•ã‚§ã‚¯ãƒˆã‚’å…ˆè¡Œç™ºå‹•
+            const tempBoard = board.map(row => [...row]);
+            for (let i = 0; i < shape.matrix.length; i++) {
+                for (let j = 0; j < shape.matrix[0].length; j++) {
+                    if (shape.matrix[i][j] === 1) tempBoard[r + i][c + j] = myColor;
+                }
+            }
+
+            const rowsToClear: number[] = [];
+            const colsToClear: number[] = [];
+            for (let rr = 0; rr < BOARD_SIZE; rr++) { if (tempBoard[rr].every(cell => cell !== null)) rowsToClear.push(rr); }
+            for (let cc = 0; cc < BOARD_SIZE; cc++) {
+                let full = true;
+                for (let rr = 0; rr < BOARD_SIZE; rr++) { if (tempBoard[rr][cc] === null) { full = false; break; } }
+                if (full) colsToClear.push(cc);
+            }
+
+            if (rowsToClear.length > 0 || colsToClear.length > 0) {
+                playSound('clear');
+                if (navigator.vibrate) navigator.vibrate(HAPTIC_DURATION);
+
+                const cellsToAnim: string[] = [];
+                rowsToClear.forEach(rr => { for (let cc = 0; cc < BOARD_SIZE; cc++) cellsToAnim.push(`${rr}-${cc}`); });
+                colsToClear.forEach(cc => { for (let rr = 0; rr < BOARD_SIZE; rr++) cellsToAnim.push(`${rr}-${cc}`); });
+                setClearingCells(cellsToAnim);
+                setTimeout(() => setClearingCells([]), 400);
+            } else {
+                playSound('place');
+            }
+
+            // ã‚µãƒ¼ãƒãƒ¼ã«é€ä¿¡
             socket.emit('puzzle_move', { roomId, shapeIndex: index, row: r, col: c });
         }
-    }, [board, canPlace, roomId, socket]);
+    }, [board, canPlace, roomId, socket, myColor, playSound]);
 
-    // --- ‚±‚±‚©‚çƒ\ƒƒ‚[ƒh‚Æ“¯‚¶‘€ì«‚Ìƒhƒ‰ƒbƒOƒƒWƒbƒN ---
+    // --- ãƒ‰ãƒ©ãƒƒã‚°ãƒ­ã‚¸ãƒƒã‚¯ ---
     const handlePointerDown = (e: React.PointerEvent, idx: number) => {
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume();
+        }
         if (status !== 'PLAYING' || turn !== myColor || !myHand[idx]) return;
+
+        playSound('pickup');
 
         const target = e.currentTarget as HTMLElement;
         target.setPointerCapture(e.pointerId);
 
-        let currentCellSize = 30; // ƒfƒtƒHƒ‹ƒg’l
+        let currentCellSize = 30;
         if (boardRef.current) {
             const rect = boardRef.current.getBoundingClientRect();
             currentCellSize = rect.width / BOARD_SIZE;
@@ -159,12 +303,10 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
         }
 
         setDragState({
-            shapeIdx: idx,
-            startX: e.clientX, startY: e.clientY,
+            shapeIdx: idx, startX: e.clientX, startY: e.clientY,
             startPointerX: e.clientX, startPointerY: e.clientY,
             currentX: e.clientX, currentY: e.clientY,
-            hoverRow: null, hoverCol: null,
-            boardCellSize: currentCellSize
+            hoverRow: null, hoverCol: null, boardCellSize: currentCellSize
         });
     };
 
@@ -181,6 +323,8 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
 
         let bestRow: number | null = null;
         let bestCol: number | null = null;
+        let hRows: number[] = [];
+        let hCols: number[] = [];
 
         if (shape && boardMetrics.current) {
             const { left, top, cellSize } = boardMetrics.current;
@@ -207,7 +351,24 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                     }
                 }
             }
+
+            // ãƒã‚¤ãƒ©ã‚¤ãƒˆï¼ˆç™½å…‰ã‚Šï¼‰ã®è¨ˆç®—
+            if (bestRow !== null && bestCol !== null) {
+                const tempBoard = board.map(row => [...row]);
+                for (let i = 0; i < shape.matrix.length; i++) {
+                    for (let j = 0; j < shape.matrix[0].length; j++) {
+                        if (shape.matrix[i][j] === 1) tempBoard[bestRow + i][bestCol + j] = myColor;
+                    }
+                }
+                for (let rr = 0; rr < BOARD_SIZE; rr++) { if (tempBoard[rr].every(cell => cell !== null)) hRows.push(rr); }
+                for (let cc = 0; cc < BOARD_SIZE; cc++) {
+                    let full = true;
+                    for (let rr = 0; rr < BOARD_SIZE; rr++) { if (tempBoard[rr][cc] === null) { full = false; break; } }
+                    if (full) hCols.push(cc);
+                }
+            }
         }
+        setHighlightLines({ rows: hRows, cols: hCols });
         setDragState(prev => prev ? { ...prev, currentX, currentY, hoverRow: bestRow, hoverCol: bestCol } : null);
     };
 
@@ -219,13 +380,15 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
         const target = e.currentTarget as HTMLElement;
         target.releasePointerCapture(e.pointerId);
 
+        setHighlightLines({ rows: [], cols: [] });
+
         if (shape && hoverRow !== null && hoverCol !== null) {
             attemptPlace(hoverRow, hoverCol, shape, shapeIdx);
         }
         setDragState(null);
     };
 
-    // ‚Ç‚±‚É—‚¿‚é‚©‚ÌƒvƒŒƒrƒ…[iƒS[ƒXƒgjŒvZ
+    // ã©ã“ã«è½ã¡ã‚‹ã‹ã®ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼ï¼ˆã‚´ãƒ¼ã‚¹ãƒˆï¼‰è¨ˆç®—
     const ghostCells = useMemo(() => {
         if (!dragState || dragState.hoverRow === null || dragState.hoverCol === null) return [];
         const shape = myHand[dragState.shapeIdx];
@@ -244,17 +407,8 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
         }
         return [];
     }, [dragState, board, myHand, canPlace]);
-    // --- ƒhƒ‰ƒbƒOƒƒWƒbƒN‚±‚±‚Ü‚Å ---
 
-    // š”’E•‚Ì‘ã‚í‚è‚ÉAŒ©‚â‚·‚¢‘ÎíƒJƒ‰[‚É‚·‚éİ’è
-    const getCellColor = (val: string | null) => {
-        if (!val) return 'transparent';
-        if (val === 'black') return '#4a90e2'; // P1: ƒuƒ‹[iÂj
-        if (val === 'white') return '#e94b3c'; // P2: ƒŒƒbƒhiÔj
-        if (colors[val as ColorKey]) return colors[val as ColorKey];
-        return val;
-    };
-
+    // --- ãƒ¬ãƒ³ãƒ€ãƒªãƒ³ã‚° ---
     if (status === 'LOBBY') {
         return (
             <div className="lobby-container">
@@ -269,22 +423,19 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                         <input value={playerName} onChange={e => setPlayerName(e.target.value)} placeholder="Enter Name" />
                     </div>
                     {errorMsg && <div className="error-msg">{errorMsg}</div>}
-                    <button onClick={handleJoin} className="join-btn neon-btn" style={{ marginTop: '2rem' }}>
-                        Join Game
-                    </button>
-                    <button onClick={onBack} className="back-link" style={{ marginTop: '1rem', width: '100%', textAlign: 'center' }}>
-                        Back to Menu
-                    </button>
+                    <button onClick={handleJoin} className="join-btn neon-btn" style={{ marginTop: '2rem' }}>Join Game</button>
+                    <button onClick={onBack} className="back-link" style={{ marginTop: '1rem', width: '100%', textAlign: 'center' }}>Back to Menu</button>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="game-container puzzle-mode" style={{ touchAction: 'none' }}>
+        // â˜… iPhoneã§ã®è¦‹åˆ‡ã‚Œï¼ˆãƒãƒƒãƒãƒ»Dynamic Islandï¼‰å¯¾ç­–ã§ä¸Šéƒ¨ã«ã‚»ãƒ¼ãƒ•ã‚¨ãƒªã‚¢ã®ä½™ç™½ã‚’è¨­ã‘ã¦ã„ã¾ã™
+        <div className="game-container puzzle-mode" style={{ touchAction: 'none', paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}>
             <div className="scoreboard glass-panel puzzle-header-layout">
                 <div className="score-box left-align">
-                    <span className="label" style={{ color: getCellColor(myColor) }}>YOU</span>
+                    <span className="label" style={{ color: myPlayerColor }}>YOU</span>
                     <span className="puzzle-score">{scores[myColor as 'black' | 'white'] || 0}</span>
                 </div>
                 <div className="combo-center-area">
@@ -296,7 +447,11 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                         </span>
                     )}
                 </div>
-                <div className="score-box right-align">
+                {/* â˜… å³ä¸Šã«ãƒŸãƒ¥ãƒ¼ãƒˆãƒœã‚¿ãƒ³ã‚’è‡ªç„¶ã«é…ç½® */}
+                <div className="score-box right-align" style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-end' }}>
+                    <button onClick={toggleMute} className="sound-btn" style={{ background: 'transparent', border: 'none', fontSize: '1.2rem', padding: 0, cursor: 'pointer' }}>
+                        {isMuted ? 'ğŸ”‡' : 'ğŸ”Š'}
+                    </button>
                     <div style={{ textAlign: 'right' }}>
                         <span className="label" style={{ color: getCellColor(myColor === 'black' ? 'white' : 'black') }}>OPPONENT</span>
                         <div className="puzzle-score">{scores[myColor === 'black' ? 'white' : 'black'] || 0}</div>
@@ -310,13 +465,19 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                         row.map((cell, c) => {
                             const cellKey = `${r}-${c}`;
                             const isGhost = ghostCells.includes(cellKey);
+                            const isClearing = clearingCells.includes(cellKey);
+                            const isHighlightRow = highlightLines.rows.includes(r);
+                            const isHighlightCol = highlightLines.cols.includes(c);
+
                             return (
                                 <div
                                     key={cellKey}
-                                    className={`cell puzzle-cell ${isGhost ? 'ghost-active' : ''}`}
+                                    className={`cell puzzle-cell ${isGhost ? 'ghost-active' : ''} ${isClearing ? 'clearing' : ''}`}
                                     style={cell ? { backgroundColor: getCellColor(cell) } : {}}
                                 >
-                                    {isGhost && <div className="ghost-overlay" style={{ backgroundColor: getCellColor(myColor), opacity: 0.5 }} />}
+                                    {isGhost && <div className="ghost-overlay" style={{ backgroundColor: myPlayerColor, opacity: 0.5 }} />}
+                                    {/* â˜… ç½®ã„ãŸã‚‰æ¶ˆãˆã‚‹åˆ—ãŒãƒ›ãƒãƒ¼æ™‚ã«ç™½ãå…‰ã‚‹ã‚¨ãƒ•ã‚§ã‚¯ãƒˆ */}
+                                    {(isHighlightRow || isHighlightCol) && <div className="potential-clear-overlay" />}
                                 </div>
                             );
                         })
@@ -324,7 +485,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 </div>
             </div>
 
-            {/* ‘Šè‚ÌèDi‘Šè‚ÌF‚Å•\¦j */}
+            {/* ç›¸æ‰‹ã®æ‰‹æœ­ */}
             <div style={{ width: '100%', maxWidth: '500px', marginBottom: '10px', opacity: 0.8 }}>
                 <div style={{ fontSize: '0.7rem', color: '#fff', marginBottom: '5px', textAlign: 'center' }}>Opponent's Hand</div>
                 <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
@@ -344,11 +505,10 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 </div>
             </div>
 
-            {/* ©•ª‚ÌèDiƒhƒ‰ƒbƒO‘€ì‰Â”\j */}
+            {/* è‡ªåˆ†ã®æ‰‹æœ­ï¼ˆâ˜…è‰²ãŒmyPlayerColorã«çµ±ä¸€ã•ã‚Œã¾ã—ãŸï¼‰ */}
             <div className="hand-container">
                 {myHand.map((shape, idx) => {
                     const isDragging = dragState?.shapeIdx === idx;
-                    const color = shape ? colors[shape.colorKey] : 'transparent';
                     return (
                         <div
                             key={idx}
@@ -362,7 +522,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                                 <div className="mini-grid" style={{ gridTemplateColumns: `repeat(${shape.matrix[0].length}, 1fr)` }}>
                                     {shape.matrix.map((row, r) => row.map((val, c) => (
                                         <div key={`${r}-${c}`} className="mini-cell" style={{
-                                            backgroundColor: val ? color : 'transparent',
+                                            backgroundColor: val ? myPlayerColor : 'transparent',
                                             border: val ? 'var(--cell-border)' : 'none'
                                         }} />
                                     )))}
@@ -373,7 +533,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 })}
             </div>
 
-            {/* ƒhƒ‰ƒbƒO’†‚ÌƒvƒŒƒrƒ…[iw‚Ìã‚É‚¸‚ç‚µ‚Ä•\¦j */}
+            {/* ãƒ‰ãƒ©ãƒƒã‚°ä¸­ã®ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼ï¼ˆâ˜…è‰²çµ±ä¸€æ¸ˆã¿ï¼‰ */}
             {dragState && myHand[dragState.shapeIdx] && (
                 <div className="drag-preview" style={{ left: dragState.currentX, top: dragState.currentY - TOUCH_OFFSET_Y, transform: 'translate(-50%, -50%)' }}>
                     <div className="mini-grid" style={{
@@ -382,7 +542,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                     }}>
                         {myHand[dragState.shapeIdx]!.matrix.map((row, r) => row.map((val, c) => (
                             <div key={`${r}-${c}`} className="mini-cell" style={{
-                                backgroundColor: val ? colors[myHand[dragState.shapeIdx]!.colorKey] : 'transparent',
+                                backgroundColor: val ? myPlayerColor : 'transparent',
                                 width: `${dragState.boardCellSize}px`, height: `${dragState.boardCellSize}px`,
                                 border: val ? 'var(--cell-border)' : 'none'
                             }} />
@@ -391,7 +551,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 </div>
             )}
 
-            {/* ƒŠƒUƒ‹ƒg‰æ–Ê */}
+            {/* ãƒªã‚¶ãƒ«ãƒˆç”»é¢ */}
             {(status === 'FINISHED' || status === 'ABORTED') && (
                 <div className="result-overlay">
                     <div className={`result-card ${winner === myColor ? 'win' : 'lose'}`}>
