@@ -586,7 +586,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             {/* ★ 5. 自分の手札（高さを100px→80pxにスリム化、ブロックも少し小さく調整） */}
             <div className="hand-container glass-panel" style={{
                 flexShrink: 0,
-                height: '65px',
+                height: '45px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
