@@ -441,7 +441,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             boxSizing: 'border-box',
             backgroundColor: 'var(--bg-color)',
             paddingTop: 'max(env(safe-area-inset-top), 10px)',
-            paddingBottom: 'max(env(safe-area-inset-bottom), 10px)'
+            paddingBottom: 'max(env(safe-area-inset-bottom), 0px)'
         }}>
 
             {/* 1. 上部コントロールバー */}
@@ -511,7 +511,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             }}>
                 {/* 盤面を絶対に正方形に保つための「見えない枠」 */}
                 <div style={{
-                    width: '90%',
+                    width: '100%',
                     maxWidth: '350px',
                     maxHeight: '100%',
                     aspectRatio: '1 / 1',
@@ -521,7 +521,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                     <div className="board-wrapper glass-panel" style={{
                         position: 'absolute',
                         top: 0, left: 0, right: 0, bottom: 0,
-                        padding: '6px',
+                        padding: '13px',
                         boxSizing: 'border-box',
                         display: 'flex'
                     }}>
@@ -562,7 +562,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
 
             {/* 4. 相手の手札 */}
             <div style={{ width: '100%', opacity: 0.8, flexShrink: 0, height: '45px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ fontSize: '0.7rem', color: '#fff', marginBottom: '2px' }}>Opponent's Hand</div>
+                <div style={{ fontSize: '0.7rem', color: '#fff', marginBottom: '0px' }}>Opponent's Hand</div>
                 <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', alignItems: 'center', flexGrow: 1 }}>
                     {opponentHand.map((shape, i) => (
                         <div key={i} style={{ width: '40px', height: '40px', position: 'relative' }}>
@@ -590,7 +590,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                margin: '5px 15px 10px',
+                margin: '5px 15px 0px',
                 padding: '5px 10px'
             }}>
                 {myHand.map((shape, idx) => {
