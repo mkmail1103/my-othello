@@ -511,11 +511,13 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             }}>
                 {/* 盤面を絶対に正方形に保つための「見えない枠」 */}
                 <div style={{
-                    width: '100%',
+                    height: '100%',
+                    width: 'auto',
                     maxWidth: '350px',
                     maxHeight: '100%',
                     aspectRatio: '1 / 1',
-                    position: 'relative' /* 中身をこの枠内にピッタリ貼り付ける指示 */
+                    position: 'relative', /* 中身をこの枠内にピッタリ貼り付ける指示 */
+                    margin: '0 auto'
                 }}>
                     {/* 背景パネル（見えない枠にピッタリ張り付く） */}
                     <div className="board-wrapper glass-panel" style={{
