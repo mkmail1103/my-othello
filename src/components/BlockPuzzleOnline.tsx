@@ -501,7 +501,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             {/* ★ 3. 盤面エリア（ズレと被りを完全に防ぐ構造に作り直し） */}
             <div style={{
                 flexGrow: 1,
-                minHeight: 0,
+                minHeight: '300px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -511,8 +511,8 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             }}>
                 {/* 盤面を絶対に正方形に保つための「見えない枠」 */}
                 <div style={{
-                    width: '100%',
-                    maxWidth: '400px',
+                    width: '90%',
+                    maxWidth: '350px',
                     maxHeight: '100%',
                     aspectRatio: '1 / 1',
                     position: 'relative' /* 中身をこの枠内にピッタリ貼り付ける指示 */
@@ -610,8 +610,8 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                                         <div key={`${r}-${c}`} className="mini-cell" style={{
                                             backgroundColor: val ? myPlayerColor : 'transparent',
                                             border: val ? '1px solid rgba(255,255,255,0.2)' : 'none',
-                                            width: '20px', /* ブロックサイズを微調整 */
-                                            height: '20px'
+                                            width: '15px', /* ブロックサイズを微調整 */
+                                            height: '15px'
                                         }} />
                                     )))}
                                 </div>
