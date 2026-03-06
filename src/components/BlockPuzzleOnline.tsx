@@ -501,7 +501,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             {/* ★ 3. 盤面エリア（ズレと被りを完全に防ぐ構造に作り直し） */}
             <div style={{
                 flexGrow: 1,
-                minHeight: '300px',
+                minHeight: '0px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -561,7 +561,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             </div>
 
             {/* 4. 相手の手札 */}
-            <div style={{ width: '100%', opacity: 0.8, flexShrink: 0, height: '45px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ width: '100%', opacity: 0.8, flexShrink: 0, minHeight: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '10px' }}>
                 <div style={{ fontSize: '0.7rem', color: '#fff', marginBottom: '0px' }}>Opponent's Hand</div>
                 <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', alignItems: 'center', flexGrow: 1 }}>
                     {opponentHand.map((shape, i) => (
@@ -583,15 +583,17 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                 </div>
             </div>
 
-            {/* ★ 5. 自分の手札（高さを100px→80pxにスリム化、ブロックも少し小さく調整） */}
+            {/* ★ 5. 自分の手札 */}
             <div className="hand-container glass-panel" style={{
+                flexGrow: 0,
                 flexShrink: 0,
-                height: '45px',
+                height: 'auto',
+                minHeight: '80px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                margin: '5px 15px 0px',
-                padding: '5px 10px'
+                margin: 'auto 15px 0px',
+                padding: '10px'
             }}>
                 {myHand.map((shape, idx) => {
                     const isDragging = dragState?.shapeIdx === idx;
