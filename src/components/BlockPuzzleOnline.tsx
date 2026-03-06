@@ -586,7 +586,7 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
             {/* ★ 5. 自分の手札（高さを100px→80pxにスリム化、ブロックも少し小さく調整） */}
             <div className="hand-container glass-panel" style={{
                 flexShrink: 0,
-                height: '80px',
+                height: '65px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -610,8 +610,8 @@ const BlockPuzzleOnline: React.FC<BlockPuzzleOnlineProps> = ({ onBack, theme }) 
                                         <div key={`${r}-${c}`} className="mini-cell" style={{
                                             backgroundColor: val ? myPlayerColor : 'transparent',
                                             border: val ? '1px solid rgba(255,255,255,0.2)' : 'none',
-                                            width: '15px', /* ブロックサイズを微調整 */
-                                            height: '15px'
+                                            width: '20px', /* ブロックサイズを微調整 */
+                                            height: '20px'
                                         }} />
                                     )))}
                                 </div>
