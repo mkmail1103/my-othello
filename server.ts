@@ -66,7 +66,7 @@ function canPlace(grid: (string | null)[][], matrix: number[][], r: number, c: n
             if (matrix[i][j] === 1) {
                 const nr = r + i;
                 const nc = c + j;
-                if (nr < 0 || nr >= 10 || nc < 0 || nc >= 10) return false; // 10x10 board
+                if (nr < 0 || nr >= grid.length || nc < 0 || nc >= grid[0].length) return false;
                 if (grid[nr][nc] !== null) return false;
             }
         }
@@ -85,8 +85,8 @@ function getRandomShapes(count: number): ShapeDef[] {
 function hasAnyValidMove(grid: (string | null)[][], hand: (ShapeDef | null)[]) {
     for (const shape of hand) {
         if (!shape) continue;
-        for (let r = 0; r < 10; r++) {
-            for (let c = 0; c < 10; c++) {
+        for (let r = 0; r < grid.length; r++) {
+            for (let c = 0; c < grid[0].length; c++) {
                 if (canPlace(grid, shape.matrix, r, c)) return true;
             }
         }
@@ -406,13 +406,13 @@ async function startServer() {
             if (!rooms[roomId]) {
                 rooms[roomId] = {
                     type: 'PUZZLE_ATTACK',
-                    board: Array(10).fill(null).map(() => Array(10).fill(null)), // unused placeholder
+                    board: Array(8).fill(null).map(() => Array(8).fill(null)), // unused placeholder
                     turn: 'black',
                     players: [],
                     status: 'WAITING',
                     boards: {
-                        black: Array(10).fill(null).map(() => Array(10).fill(null)),
-                        white: Array(10).fill(null).map(() => Array(10).fill(null))
+                        black: Array(8).fill(null).map(() => Array(8).fill(null)),
+                        white: Array(8).fill(null).map(() => Array(8).fill(null))
                     },
                     hands: { black: getRandomShapes(3), white: getRandomShapes(3) },
                     scores: { black: 0, white: 0 },
@@ -491,10 +491,10 @@ async function startServer() {
             // Check Clears on own board
             const rowsToClear: number[] = [];
             const colsToClear: number[] = [];
-            for (let r = 0; r < 10; r++) { if (myBoard[r].every((c: string | null) => c !== null)) rowsToClear.push(r); }
-            for (let c = 0; c < 10; c++) {
+            for (let r = 0; r < 8; r++) { if (myBoard[r].every((c: string | null) => c !== null)) rowsToClear.push(r); }
+            for (let c = 0; c < 8; c++) {
                 let full = true;
-                for (let r = 0; r < 10; r++) { if (myBoard[r][c] === null) { full = false; break; } }
+                for (let r = 0; r < 8; r++) { if (myBoard[r][c] === null) { full = false; break; } }
                 if (full) colsToClear.push(c);
             }
 
@@ -511,8 +511,8 @@ async function startServer() {
                 else garbageToSend = 4;
 
                 // Clear lines on own board (garbage blocks included = destroyed when cleared)
-                rowsToClear.forEach(r => { for (let c = 0; c < 10; c++) myBoard[r][c] = null; });
-                colsToClear.forEach(c => { for (let r = 0; r < 10; r++) myBoard[r][c] = null; });
+                rowsToClear.forEach(r => { for (let c = 0; c < 8; c++) myBoard[r][c] = null; });
+                colsToClear.forEach(c => { for (let r = 0; r < 8; r++) myBoard[r][c] = null; });
             }
 
             room.scores[color] += moveScore;
@@ -522,8 +522,8 @@ async function startServer() {
                 const oppBoard = room.boards[oppColor];
                 // Find all empty cells on opponent's board
                 const emptyCells: { r: number, c: number }[] = [];
-                for (let r = 0; r < 10; r++) {
-                    for (let c = 0; c < 10; c++) {
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
                         if (oppBoard[r][c] === null) emptyCells.push({ r, c });
                     }
                 }

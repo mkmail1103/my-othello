@@ -8,7 +8,7 @@ type GameStatus = 'LOBBY' | 'WAITING' | 'PLAYING' | 'FINISHED' | 'ABORTED';
 
 const DRAG_SENSITIVITY = 1.5;
 const TOUCH_OFFSET_Y = 100;
-const BOARD_SIZE = 10;
+const BOARD_SIZE = 8;
 const HAPTIC_DURATION = 15;
 
 const BlockPuzzleAttack: React.FC<Props> = ({ onBack, theme }) => {
