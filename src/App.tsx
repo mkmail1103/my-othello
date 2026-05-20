@@ -1,15 +1,17 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import type { ThemeType } from './types.js';
 import OthelloGame from './components/OthelloGame.js';
 import BlockPuzzleGame from './components/BlockPuzzleGame.js';
 import BlockPuzzleOnline from './components/BlockPuzzleOnline.js';
+import BlockPuzzleAttack from './components/BlockPuzzleAttack.js';
 
 enum GameMode {
     MENU = 'MENU',
     OTHELLO = 'OTHELLO',
     BLOCK_PUZZLE = 'BLOCK_PUZZLE',
-    BLOCK_PUZZLE_ONLINE = 'BLOCK_PUZZLE_ONLINE'
+    BLOCK_PUZZLE_ONLINE = 'BLOCK_PUZZLE_ONLINE',
+    BLOCK_PUZZLE_ATTACK = 'BLOCK_PUZZLE_ATTACK'
 }
 
 const App: React.FC = () => {
@@ -77,6 +79,13 @@ const App: React.FC = () => {
                                 <span className="sub">Online Battle</span>
                             </div>
                         </button>
+                        <button onClick={() => setGameMode(GameMode.BLOCK_PUZZLE_ATTACK)} className="menu-btn puzzle-btn glass-panel" style={{ borderLeftColor: '#ef4444' }}>
+                            <span className="icon">💥</span>
+                            <div className="text">
+                                <span className="main neon-text-white">攻撃型パズル (PvP)</span>
+                                <span className="sub">お邪魔ブロック送信</span>
+                            </div>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -93,6 +102,10 @@ const App: React.FC = () => {
 
     if (gameMode === GameMode.BLOCK_PUZZLE_ONLINE) {
         return <BlockPuzzleOnline onBack={() => setGameMode(GameMode.MENU)} theme={theme} />;
+    }
+
+    if (gameMode === GameMode.BLOCK_PUZZLE_ATTACK) {
+        return <BlockPuzzleAttack onBack={() => setGameMode(GameMode.MENU)} theme={theme} />;
     }
 
     return null;

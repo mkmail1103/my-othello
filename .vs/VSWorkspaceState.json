@@ -1,8 +1,11 @@
 {
   "ExpandedNodes": [
     "",
-    "\\src"
+    "\\public",
+    "\\src",
+    "\\src\\assets",
+    "\\src\\components"
   ],
-  "SelectedNode": "\\src\\App.tsx",
+  "SelectedNode": "\\src\\components\\BlockPuzzleOnline.tsx",
   "PreviewInSolutionExplorer": false
 }

@@ -130,13 +130,16 @@ async function startServer() {
     }
 
     interface Room {
-        type: 'OTHELLO' | 'PUZZLE';
+        type: 'OTHELLO' | 'PUZZLE' | 'PUZZLE_ATTACK';
         board: (string | null)[][];
         turn: string;
         players: Player[];
         status: 'WAITING' | 'PLAYING' | 'FINISHED' | 'ABORTED';
         hands?: { black: (ShapeDef | null)[], white: (ShapeDef | null)[] };
         scores?: { black: number, white: number };
+        // Attack mode specific
+        boards?: { black: (string | null)[][], white: (string | null)[][] };
+        pendingGarbage?: { black: number, white: number };
     }
 
     interface Flip {
@@ -388,6 +391,223 @@ async function startServer() {
                     hands: room.hands,
                     scores: room.scores,
                     lastMove: { row, col, shapeId: shape.id }
+                });
+            }
+        });
+
+        // --- Attack Mode Join ---
+        socket.on('join_attack_room', ({ roomId, playerName }) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if ((socket as any).currentRoom) socket.leave((socket as any).currentRoom);
+            socket.join(roomId);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (socket as any).currentRoom = roomId;
+
+            if (!rooms[roomId]) {
+                rooms[roomId] = {
+                    type: 'PUZZLE_ATTACK',
+                    board: Array(10).fill(null).map(() => Array(10).fill(null)), // unused placeholder
+                    turn: 'black',
+                    players: [],
+                    status: 'WAITING',
+                    boards: {
+                        black: Array(10).fill(null).map(() => Array(10).fill(null)),
+                        white: Array(10).fill(null).map(() => Array(10).fill(null))
+                    },
+                    hands: { black: getRandomShapes(3), white: getRandomShapes(3) },
+                    scores: { black: 0, white: 0 },
+                    pendingGarbage: { black: 0, white: 0 }
+                };
+            }
+
+            const room = rooms[roomId];
+            if (room.type !== 'PUZZLE_ATTACK') {
+                socket.emit('error_message', 'Room exists but is not for Attack mode!');
+                return;
+            }
+
+            if (room.players.length >= 2) {
+                socket.emit('error_message', 'Room is full!');
+                return;
+            }
+
+            const color = room.players.length === 0 ? 'black' : 'white';
+            room.players.push({ id: socket.id, name: playerName, color });
+
+            socket.emit('init_attack_game', { color, roomId });
+
+            if (room.players.length === 1) {
+                socket.emit('waiting_opponent');
+            } else {
+                room.status = 'PLAYING';
+                // Send each player their own board and opponent's board
+                room.players.forEach(p => {
+                    const pColor = p.color as 'black' | 'white';
+                    const oppColor = pColor === 'black' ? 'white' : 'black';
+                    io.to(p.id).emit('attack_start', {
+                        myBoard: room.boards![pColor],
+                        opponentBoard: room.boards![oppColor],
+                        hands: room.hands,
+                        scores: room.scores,
+                        pendingGarbage: room.pendingGarbage
+                    });
+                });
+            }
+        });
+
+        // --- Attack Mode Move ---
+        socket.on('attack_move', ({ roomId, shapeIndex, row, col }) => {
+            const room = rooms[roomId];
+            if (!room || room.status !== 'PLAYING' || room.type !== 'PUZZLE_ATTACK') return;
+            if (!room.hands || !room.scores || !room.boards || !room.pendingGarbage) return;
+
+            // Find the player who made the move
+            const player = room.players.find(p => p.id === socket.id);
+            if (!player) return;
+            const color = player.color as 'black' | 'white';
+            const oppColor = color === 'black' ? 'white' : 'black';
+
+            const myBoard = room.boards[color];
+            const hand = room.hands[color];
+            const shape = hand[shapeIndex];
+            if (!shape) return;
+
+            if (!canPlace(myBoard, shape.matrix, row, col)) return;
+
+            // Place shape on own board
+            let placementScore = 0;
+            for (let r = 0; r < shape.matrix.length; r++) {
+                for (let c = 0; c < shape.matrix[0].length; c++) {
+                    if (shape.matrix[r][c] === 1) {
+                        myBoard[row + r][col + c] = color;
+                        placementScore++;
+                    }
+                }
+            }
+
+            // Remove from hand
+            hand[shapeIndex] = null;
+
+            // Check Clears on own board
+            const rowsToClear: number[] = [];
+            const colsToClear: number[] = [];
+            for (let r = 0; r < 10; r++) { if (myBoard[r].every((c: string | null) => c !== null)) rowsToClear.push(r); }
+            for (let c = 0; c < 10; c++) {
+                let full = true;
+                for (let r = 0; r < 10; r++) { if (myBoard[r][c] === null) { full = false; break; } }
+                if (full) colsToClear.push(c);
+            }
+
+            const totalLines = rowsToClear.length + colsToClear.length;
+            let moveScore = placementScore;
+            let garbageToSend = 0;
+
+            if (totalLines > 0) {
+                moveScore += totalLines * 100;
+                // Calculate garbage to send based on lines cleared simultaneously
+                // 1 line = 1 garbage, 2 lines = 3, 3+ lines = 4
+                if (totalLines === 1) garbageToSend = 1;
+                else if (totalLines === 2) garbageToSend = 3;
+                else garbageToSend = 4;
+
+                // Clear lines on own board (garbage blocks included = destroyed when cleared)
+                rowsToClear.forEach(r => { for (let c = 0; c < 10; c++) myBoard[r][c] = null; });
+                colsToClear.forEach(c => { for (let r = 0; r < 10; r++) myBoard[r][c] = null; });
+            }
+
+            room.scores[color] += moveScore;
+
+            // Send garbage blocks to opponent's board
+            if (garbageToSend > 0) {
+                const oppBoard = room.boards[oppColor];
+                // Find all empty cells on opponent's board
+                const emptyCells: { r: number, c: number }[] = [];
+                for (let r = 0; r < 10; r++) {
+                    for (let c = 0; c < 10; c++) {
+                        if (oppBoard[r][c] === null) emptyCells.push({ r, c });
+                    }
+                }
+                // Randomly place garbage blocks
+                const actualGarbage = Math.min(garbageToSend, emptyCells.length);
+                // Shuffle and pick
+                for (let i = emptyCells.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [emptyCells[i], emptyCells[j]] = [emptyCells[j], emptyCells[i]];
+                }
+                const garbageCells: { r: number, c: number }[] = [];
+                for (let i = 0; i < actualGarbage; i++) {
+                    oppBoard[emptyCells[i].r][emptyCells[i].c] = 'garbage';
+                    garbageCells.push(emptyCells[i]);
+                }
+
+                // Notify opponent about incoming garbage
+                const oppPlayer = room.players.find(p => p.color === oppColor);
+                if (oppPlayer) {
+                    io.to(oppPlayer.id).emit('garbage_received', {
+                        count: actualGarbage,
+                        cells: garbageCells
+                    });
+                }
+            }
+
+            // Refill hand if empty
+            if (hand.every((h: ShapeDef | null) => h === null)) {
+                room.hands[color] = getRandomShapes(3);
+            }
+
+            // Check if current player can still move
+            const currentHand = room.hands[color];
+            const canCurrentMove = hasAnyValidMove(myBoard, currentHand);
+
+            // Check if opponent can still move (they might be blocked by garbage)
+            const oppBoard = room.boards[oppColor];
+            const oppHand = room.hands[oppColor];
+            const canOppMove = hasAnyValidMove(oppBoard, oppHand);
+
+            // Determine game over conditions
+            let gameOver = false;
+            let winner: string | null = null;
+            let reason = '';
+
+            if (!canCurrentMove && !canOppMove) {
+                // Both can't move - higher score wins
+                gameOver = true;
+                if (room.scores.black > room.scores.white) winner = 'black';
+                else if (room.scores.white > room.scores.black) winner = 'white';
+                else winner = 'draw';
+                reason = 'both_stuck';
+            } else if (!canCurrentMove) {
+                // Current player can't move - they lose
+                gameOver = true;
+                winner = oppColor;
+                reason = 'no_moves';
+            } else if (!canOppMove) {
+                // Opponent can't move (likely due to garbage) - they lose
+                gameOver = true;
+                winner = color;
+                reason = 'opponent_blocked';
+            }
+
+            if (gameOver) {
+                room.status = 'FINISHED';
+                io.to(roomId).emit('attack_game_over', {
+                    winner,
+                    reason,
+                    boards: room.boards,
+                    scores: room.scores
+                });
+            } else {
+                // Broadcast updated state to both players
+                room.players.forEach(p => {
+                    const pColor = p.color as 'black' | 'white';
+                    const pOppColor = pColor === 'black' ? 'white' : 'black';
+                    io.to(p.id).emit('update_attack_state', {
+                        myBoard: room.boards![pColor],
+                        opponentBoard: room.boards![pOppColor],
+                        hands: room.hands,
+                        scores: room.scores,
+                        lastMove: { player: color, row, col, shapeId: shape.id, garbageSent: garbageToSend, linesCleared: totalLines }
+                    });
                 });
             }
         });
